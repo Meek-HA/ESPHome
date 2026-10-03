@@ -1,0 +1,621 @@
+esphome:
+  name: mdt3-esp32
+  friendly_name: MDT3 ESP32
+
+  on_boot:
+    priority: 700
+    then:
+      - switch.turn_off: touch_ics_output
+      - delay: 5s
+      - switch.turn_on: touch_ics_output
+
+esp32:
+  variant: esp32
+  framework:
+    type: esp-idf
+
+logger:
+
+preferences:
+  flash_write_interval: 1min
+
+network:
+  enable_ipv6: true
+
+api:
+  encryption:
+    key: "mSI1MgycJikXY7+cmNSvQH0cRVNGTUy+7iTMfeFyM38="
+
+ota:
+  - platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  on_connect:
+    then:
+      - script.execute: apply_mqtt_settings
+
+  ap:
+    ssid: "Meek-MDT3"
+    password: !secret fallback_ap_password
+
+captive_portal:
+
+web_server:
+  port: 80
+  version: 3
+  local: true
+  auth:
+    username: "Mistik"
+    password: !secret meek_dd__web_password
+    type: basic
+
+  sorting_groups:
+    - id: network_details_group
+      name: "Network Details"
+      sorting_weight: 10
+
+    - id: mqtt_details_group
+      name: "MQTT Details"
+      sorting_weight: 20
+
+    - id: device_details_group
+      name: "Device Details"
+      sorting_weight: 30
+
+    - id: sensors_control_group
+      name: "Sensors and Control"
+      sorting_weight: 40
+
+    - id: speaker_group
+      name: "Speaker"
+      sorting_weight: 50
+
+mqtt:
+  id: mqtt_client
+  broker: ""
+  port: 1883
+  username: ""
+  password: ""
+  enable_on_boot: false
+  reboot_timeout: 0s
+
+script:
+  - id: apply_mqtt_settings
+    mode: restart
+    then:
+      - lambda: |-
+          id(mqtt_client).disable();
+
+          const std::string broker = id(mqtt_broker_text).state;
+          const std::string port_text = id(mqtt_port_text).state;
+
+          if (broker.empty() || port_text.empty()) {
+            ESP_LOGE("mqtt_config", "MQTT disabled: broker or port is empty.");
+            return;
+          }
+
+          uint32_t port_value = 0;
+          for (char c : port_text) {
+            if (c < '0' || c > '9') {
+              ESP_LOGE("mqtt_config", "MQTT disabled: port contains non-digit characters.");
+              return;
+            }
+
+            port_value = (port_value * 10) + (c - '0');
+
+            if (port_value > 65535) {
+              ESP_LOGE("mqtt_config", "MQTT disabled: port is outside the valid range.");
+              return;
+            }
+          }
+
+          if (port_value < 1 || port_value > 65535) {
+            ESP_LOGE("mqtt_config", "MQTT disabled: port must be between 1 and 65535.");
+            return;
+          }
+
+          id(mqtt_client).set_broker_address(broker);
+          id(mqtt_client).set_broker_port(static_cast<uint16_t>(port_value));
+          id(mqtt_client).set_username(id(mqtt_username_text).state);
+          id(mqtt_client).set_password(id(mqtt_password_text).state);
+          id(mqtt_client).enable();
+
+text:
+  - platform: template
+    name: "MQTT Broker"
+    id: mqtt_broker_text
+    entity_category: config
+    mode: text
+    optimistic: true
+    restore_value: true
+    initial_value: "meek-io.com"
+    max_length: 64
+    icon: mdi:server-network
+    web_server:
+      sorting_group_id: mqtt_details_group
+      sorting_weight: 10
+
+  - platform: template
+    name: "MQTT Port"
+    id: mqtt_port_text
+    entity_category: config
+    mode: text
+    optimistic: true
+    restore_value: true
+    initial_value: "1883"
+    min_length: 1
+    max_length: 5
+    icon: mdi:server-network-port
+    web_server:
+      sorting_group_id: mqtt_details_group
+      sorting_weight: 20
+
+  - platform: template
+    name: "MQTT Username"
+    id: mqtt_username_text
+    entity_category: config
+    mode: text
+    optimistic: true
+    restore_value: true
+    initial_value: ""
+    max_length: 64
+    icon: mdi:account-network
+    web_server:
+      sorting_group_id: mqtt_details_group
+      sorting_weight: 30
+
+  - platform: template
+    name: "MQTT Password"
+    id: mqtt_password_text
+    entity_category: config
+    mode: password
+    optimistic: true
+    restore_value: true
+    initial_value: ""
+    max_length: 64
+    icon: mdi:key-network
+    web_server:
+      sorting_group_id: mqtt_details_group
+      sorting_weight: 40
+
+button:
+  - platform: template
+    name: "Save and Reboot"
+    id: save_and_reboot_button
+    icon: mdi:content-save-alert
+    entity_category: config
+    on_press:
+      - lambda: |-
+          ESP_LOGI("save_reboot", "Saving preferences and rebooting...");
+      - delay: 500ms
+      - script.execute: apply_mqtt_settings
+      - lambda: |-
+          ESP_LOGI("save_reboot", "Rebooting now...");
+          esp_restart();
+    web_server:
+      sorting_group_id: mqtt_details_group
+      sorting_weight: 50
+
+  - platform: restart
+    name: "Restart MDT3 ESP32"
+    entity_category: config
+    icon: mdi:restart
+    web_server:
+      sorting_group_id: device_details_group
+      sorting_weight: 90
+
+text_sensor:
+  - platform: template
+    name: "MQTT Status"
+    id: mqtt_status_text
+    icon: mdi:cloud-check
+    entity_category: diagnostic
+    update_interval: 5s
+    web_server:
+      sorting_group_id: mqtt_details_group
+      sorting_weight: 5
+    lambda: |-
+      if (id(mqtt_client).is_connected()) {
+        return {"Connected"};
+      }
+      return {"Disconnected"};
+
+  - platform: template
+    name: "ESPHome Version"
+    id: esphome_version_text
+    icon: mdi:chip
+    entity_category: diagnostic
+    web_server:
+      sorting_group_id: device_details_group
+      sorting_weight: 10
+    lambda: |-
+      return {ESPHOME_VERSION};
+
+  - platform: template
+    name: "Firmware Build Date"
+    id: firmware_build_date_text
+    icon: mdi:calendar
+    entity_category: diagnostic
+    web_server:
+      sorting_group_id: device_details_group
+      sorting_weight: 20
+    lambda: |-
+      return {__DATE__ " " __TIME__};
+
+  - platform: wifi_info
+    bssid:
+      name: "BSSID Mac"
+      icon: mdi:wifi
+      web_server:
+        sorting_group_id: network_details_group
+        sorting_weight: 90
+    ssid:
+      name: "Connected SSID"
+      icon: mdi:wifi
+      web_server:
+        sorting_group_id: network_details_group
+        sorting_weight: 100
+    dns_address:
+      name: "DNS Server IP"
+      icon: mdi:wifi
+      web_server:
+        sorting_group_id: network_details_group
+        sorting_weight: 87
+
+  - platform: template
+    name: "IP Address (IPv4)"
+    id: ip_ipv4
+    icon: mdi:ip-network
+    web_server:
+      sorting_group_id: network_details_group
+      sorting_weight: 80
+    lambda: |-
+      for (auto &addr : esphome::network::get_ip_addresses()) {
+        if (addr.is_set() && addr.is_ip4()) {
+          char ip_buf[esphome::network::IP_ADDRESS_BUFFER_SIZE];
+          addr.str_to(ip_buf);
+          return {std::string(ip_buf)};
+        }
+      }
+      return {"Not Connected"};
+
+  - platform: template
+    name: "IP Address (IPv6)"
+    id: ip_ipv6
+    icon: mdi:ip-network-outline
+    web_server:
+      sorting_group_id: network_details_group
+      sorting_weight: 85
+    lambda: |-
+      for (auto &addr : esphome::network::get_ip_addresses()) {
+        if (addr.is_set() && addr.is_ip6()) {
+          char ip_buf[esphome::network::IP_ADDRESS_BUFFER_SIZE];
+          addr.str_to(ip_buf);
+          return {std::string(ip_buf)};
+        }
+      }
+      return {"No IPv6 Address"};
+
+sensor:
+  - platform: wifi_signal
+    name: "WiFi Signal (dBm)"
+    id: wifi_dbm
+    update_interval: 60s
+    entity_category: diagnostic
+    icon: mdi:wifi
+    web_server:
+      sorting_group_id: network_details_group
+      sorting_weight: 50
+
+  - platform: template
+    name: "WiFi Signal (%)"
+    id: wifi_percentage
+    update_interval: 60s
+    entity_category: diagnostic
+    unit_of_measurement: "%"
+    icon: mdi:wifi-strength-4
+    lambda: |-
+      return min(max(2 * (id(wifi_dbm).state + 100.0f), 0.0f), 100.0f);
+    web_server:
+      sorting_group_id: network_details_group
+      sorting_weight: 60
+
+  - platform: uptime
+    name: "Uptime"
+    id: device_uptime
+    update_interval: 60s
+    entity_category: diagnostic
+    web_server:
+      sorting_group_id: device_details_group
+      sorting_weight: 70
+
+# ----------------- LED CONFIG -----------------
+
+light:
+  - platform: esp32_rmt_led_strip
+    name: "LED Strip"
+    id: led_strip
+    pin: GPIO13
+    chipset: SK6812
+    num_leds: 3
+    rgb_order: GRB
+    internal: true
+
+  - platform: partition
+    name: "LED 1 ON"
+    id: led1_on
+    segments:
+      - id: led_strip
+        from: 0
+        to: 0
+    icon: mdi:led-on
+    entity_category: config
+    restore_mode: RESTORE_AND_OFF
+    web_server:
+      sorting_group_id: sensors_control_group
+      sorting_weight: 8
+
+  - platform: partition
+    name: "LED 1 OFF"
+    id: led1_off
+    segments:
+      - id: led_strip
+        from: 0
+        to: 0
+    icon: mdi:led-off
+    entity_category: config
+    restore_mode: RESTORE_AND_OFF
+    web_server:
+      sorting_group_id: sensors_control_group
+      sorting_weight: 9
+
+  - platform: partition
+    name: "LED 2 ON"
+    id: led2_on
+    segments:
+      - id: led_strip
+        from: 1
+        to: 1
+    icon: mdi:led-on
+    entity_category: config
+    restore_mode: RESTORE_AND_OFF
+    web_server:
+      sorting_group_id: sensors_control_group
+      sorting_weight: 10
+
+  - platform: partition
+    name: "LED 2 OFF"
+    id: led2_off
+    segments:
+      - id: led_strip
+        from: 1
+        to: 1
+    icon: mdi:led-off
+    entity_category: config
+    restore_mode: RESTORE_AND_OFF
+    web_server:
+      sorting_group_id: sensors_control_group
+      sorting_weight: 11
+
+  - platform: partition
+    name: "LED 3 ON"
+    id: led3_on
+    segments:
+      - id: led_strip
+        from: 2
+        to: 2
+    icon: mdi:led-on
+    entity_category: config
+    restore_mode: RESTORE_AND_OFF
+    web_server:
+      sorting_group_id: sensors_control_group
+      sorting_weight: 12
+
+  - platform: partition
+    name: "LED 3 OFF"
+    id: led3_off
+    segments:
+      - id: led_strip
+        from: 2
+        to: 2
+    icon: mdi:led-off
+    entity_category: config
+    restore_mode: RESTORE_AND_OFF
+    web_server:
+      sorting_group_id: sensors_control_group
+      sorting_weight: 13
+
+# ----------------- BUZZER / RTTTL -----------------
+
+output:
+  - platform: ledc
+    pin: GPIO25
+    id: buzzer_output
+
+rtttl:
+  id: rtttl_buzzer
+  output: buzzer_output
+  gain: 50%
+
+number:
+  - platform: template
+    name: "Buzzer Volume"
+    id: buzzer_volume
+    entity_category: config
+    icon: mdi:volume-high
+    optimistic: true
+    restore_value: true
+    initial_value: 50
+    min_value: 0
+    max_value: 100
+    step: 5
+    mode: slider
+    web_server:
+      sorting_group_id: speaker_group
+      sorting_weight: 10
+    set_action:
+      - lambda: |-
+          id(rtttl_buzzer).set_gain(x / 100.0f);
+
+# ----------------- BUZZER MELODY SELECTOR -----------------
+
+select:
+  - platform: template
+    name: "Buzzer Melody"
+    id: buzzer_melody
+    entity_category: config
+    icon: mdi:music-note
+    optimistic: true
+    restore_value: true
+    initial_option: "Stop"
+    options:
+      - "Stop"
+      - "Test"
+      - "Mario"
+      - "Nokia"
+      - "Alarm"
+      - "Star Wars"
+    web_server:
+      sorting_group_id: speaker_group
+      sorting_weight: 20
+    set_action:
+      - rtttl.stop
+
+      - if:
+          condition:
+            lambda: 'return x == "Test";'
+          then:
+            - rtttl.play: "test:d=4,o=5,b=120:16c,16e,16g,16c6"
+
+      - if:
+          condition:
+            lambda: 'return x == "Mario";'
+          then:
+            - rtttl.play: "mario:d=4,o=5,b=100:16e6,16e6,p,16e6,p,16c6,16e6,p,16g6,p,p,p,16g5,p,p,p,16c6,p,p,16g5,p,p,16e5,p,p,16a5,p,16b5,p,16a#5,16a5,p,16g5,16e6,16g6,16a6,p,16f6,16g6,p,16e6,p,16c6,16d6,16b5"
+
+      - if:
+          condition:
+            lambda: 'return x == "Nokia";'
+          then:
+            - rtttl.play: "nokia:d=4,o=5,b=180:16e6,16d6,16f#,16g#,8c#6,8b,8d,8e,8b,8a,8c#,8e,2a"
+
+      - if:
+          condition:
+            lambda: 'return x == "Alarm";'
+          then:
+            - rtttl.play: "alarm:d=8,o=5,b=180:c,e,g,c6,g,e,c,e,g,c6,g,e"
+
+      - if:
+          condition:
+            lambda: 'return x == "Star Wars";'
+          then:
+            - rtttl.play: "starwars:d=8,o=6,b=180:f5,f5,f5,2a#5.,2f.,d#,d,c,2a#.,4f.,d#,d,c,2a#.,4f.,d#,d,d#,2c,4p,f5,f5,f5,2a#5.,2f.,d#,d,c,2a#.,4f.,d#,d,c,2a#.,4f.,d#,d,d#,2c"
+
+# ----------------- TOUCH IC'S + OUTPUTS -----------------
+
+switch:
+  - platform: gpio
+    id: touch_ics_output
+    name: "Touch IC's"
+    pin: GPIO23
+    restore_mode: RESTORE_DEFAULT_OFF
+    web_server:
+      sorting_group_id: sensors_control_group
+      sorting_weight: 19
+
+  - platform: gpio
+    id: output_1
+    name: "Output1"
+    pin: GPIO18
+    restore_mode: RESTORE_DEFAULT_OFF
+    entity_category: config
+    on_turn_on:
+      - light.turn_on: led1_on
+    on_turn_off:
+      - light.turn_on: led1_off
+    web_server:
+      sorting_group_id: sensors_control_group
+      sorting_weight: 50
+
+  - platform: gpio
+    id: output_2
+    name: "Output2"
+    pin: GPIO19
+    restore_mode: RESTORE_DEFAULT_OFF
+    entity_category: config
+    on_turn_on:
+      - light.turn_on: led2_on
+    on_turn_off:
+      - light.turn_on: led2_off
+    web_server:
+      sorting_group_id: sensors_control_group
+      sorting_weight: 60
+
+  - platform: gpio
+    id: output_3
+    name: "Output3"
+    pin: GPIO21
+    restore_mode: RESTORE_DEFAULT_OFF
+    entity_category: config
+    on_turn_on:
+      - light.turn_on: led3_on
+    on_turn_off:
+      - light.turn_on: led3_off
+    web_server:
+      sorting_group_id: sensors_control_group
+      sorting_weight: 70
+
+# ----------------- BUTTONS -----------------
+
+binary_sensor:
+  - platform: gpio
+    id: button_1
+    name: "Button1"
+    pin:
+      number: GPIO22
+      mode:
+        input: true
+        pullup: true
+    filters:
+      - delayed_on_off: 10ms
+    entity_category: diagnostic
+    on_press:
+      - switch.toggle: output_1
+    web_server:
+      sorting_group_id: sensors_control_group
+      sorting_weight: 20
+
+  - platform: gpio
+    id: button_2
+    name: "Button2"
+    pin:
+      number: GPIO34
+      mode:
+        input: true
+    filters:
+      - delayed_on_off: 10ms
+    entity_category: diagnostic
+    on_press:
+      - switch.toggle: output_2
+    web_server:
+      sorting_group_id: sensors_control_group
+      sorting_weight: 30
+
+  - platform: gpio
+    id: button_3
+    name: "Button3"
+    pin:
+      number: GPIO35
+      mode:
+        input: true
+    filters:
+      - delayed_on_off: 10ms
+    entity_category: diagnostic
+    on_press:
+      - switch.toggle: output_3
+    web_server:
+      sorting_group_id: sensors_control_group
+      sorting_weight: 40
