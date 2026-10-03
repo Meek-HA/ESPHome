@@ -48,7 +48,7 @@ web_server:
   version: 3
   local: true
   auth:
-    username: "Mistik"
+    username: "Meek"
     password: !secret meek_dd__web_password
     type: basic
 
@@ -122,6 +122,28 @@ script:
           id(mqtt_client).set_username(id(mqtt_username_text).state);
           id(mqtt_client).set_password(id(mqtt_password_text).state);
           id(mqtt_client).enable();
+
+  # Manual fixed-frequency PWM tone.
+  - id: play_manual_buzzer_tone
+    mode: restart
+    then:
+      - rtttl.stop
+
+      - output.turn_on: buzzer_output
+
+      - output.ledc.set_frequency:
+          id: buzzer_output
+          frequency: !lambda 'return id(buzzer_pwm_frequency).state;'
+
+      - output.set_level:
+          id: buzzer_output
+          level: !lambda |-
+            return id(buzzer_pwm_volume).state / 100.0f;
+
+      - delay: !lambda |-
+          return static_cast<uint32_t>(id(buzzer_tone_duration).state);
+
+      - output.turn_off: buzzer_output
 
 text:
   - platform: template
@@ -206,6 +228,17 @@ button:
     web_server:
       sorting_group_id: device_details_group
       sorting_weight: 90
+
+  - platform: template
+    name: "Play Buzzer Tone"
+    id: play_buzzer_tone_button
+    icon: mdi:play-circle
+    entity_category: config
+    on_press:
+      - script.execute: play_manual_buzzer_tone
+    web_server:
+      sorting_group_id: speaker_group
+      sorting_weight: 50
 
 text_sensor:
   - platform: template
@@ -434,6 +467,7 @@ output:
   - platform: ledc
     pin: GPIO25
     id: buzzer_output
+    frequency: 2000 Hz
 
 rtttl:
   id: rtttl_buzzer
@@ -460,7 +494,60 @@ number:
       - lambda: |-
           id(rtttl_buzzer).set_gain(x / 100.0f);
 
-# ----------------- BUZZER MELODY SELECTOR -----------------
+  - platform: template
+    name: "Buzzer PWM Frequency"
+    id: buzzer_pwm_frequency
+    entity_category: config
+    icon: mdi:sine-wave
+    optimistic: true
+    restore_value: true
+    initial_value: 2000
+    min_value: 500
+    max_value: 4000
+    step: 25
+    unit_of_measurement: "Hz"
+    mode: slider
+    web_server:
+      sorting_group_id: speaker_group
+      sorting_weight: 20
+    set_action:
+      - output.ledc.set_frequency:
+          id: buzzer_output
+          frequency: !lambda 'return x;'
+
+  - platform: template
+    name: "Buzzer PWM Volume"
+    id: buzzer_pwm_volume
+    entity_category: config
+    icon: mdi:volume-medium
+    optimistic: true
+    restore_value: true
+    initial_value: 50
+    min_value: 1
+    max_value: 50
+    step: 1
+    unit_of_measurement: "%"
+    mode: slider
+    web_server:
+      sorting_group_id: speaker_group
+      sorting_weight: 30
+
+  - platform: template
+    name: "Buzzer Tone Duration"
+    id: buzzer_tone_duration
+    entity_category: config
+    icon: mdi:timer-outline
+    optimistic: true
+    restore_value: true
+    initial_value: 500
+    min_value: 50
+    max_value: 5000
+    step: 50
+    unit_of_measurement: "ms"
+    mode: slider
+    web_server:
+      sorting_group_id: speaker_group
+      sorting_weight: 40
 
 select:
   - platform: template
@@ -480,7 +567,7 @@ select:
       - "Star Wars"
     web_server:
       sorting_group_id: speaker_group
-      sorting_weight: 20
+      sorting_weight: 60
     set_action:
       - rtttl.stop
 
