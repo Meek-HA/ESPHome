@@ -270,7 +270,8 @@ text:
     entity_category: config
     mode: text
     optimistic: true
-    restore_value: false
+    restore_value: true
+    initial_value: ""
     max_length: 255
     icon: mdi:music-note-plus
     web_server:
@@ -293,8 +294,9 @@ button:
     on_press:
       - lambda: |-
           ESP_LOGI("save_reboot", "Saving preferences and rebooting...");
-      - delay: 500ms
+          global_preferences->sync();
       - script.execute: apply_mqtt_settings
+      - delay: 500ms
       - lambda: |-
           ESP_LOGI("save_reboot", "Rebooting now...");
           esp_restart();
@@ -302,10 +304,19 @@ button:
       sorting_group_id: mqtt_details_group
       sorting_weight: 50
 
-  - platform: restart
+  - platform: template
     name: "Restart MDT3 ESP32"
+    id: restart_mdt3_button
     entity_category: config
     icon: mdi:restart
+    on_press:
+      - lambda: |-
+          ESP_LOGI("restart", "Saving all preferences before rebooting...");
+          global_preferences->sync();
+      - delay: 500ms
+      - lambda: |-
+          ESP_LOGI("restart", "All preferences saved. Rebooting now...");
+          esp_restart();
     web_server:
       sorting_group_id: device_details_group
       sorting_weight: 90
@@ -337,21 +348,15 @@ button:
           then:
             - if:
                 condition:
-                  lambda: 'return id(buzzer_melody).current_option() == "Test";'
-                then:
-                  - rtttl.play: "test:d=4,o=5,b=120:16c,16e,16g,16c6"
-
-            - if:
-                condition:
                   lambda: 'return id(buzzer_melody).current_option() == "Mario";'
                 then:
-                  - rtttl.play: "mario:d=4,o=5,b=100:16e6,16e6,p,16e6,p,16c6,16e6,p,16g6,p,p,p,16g5,p,p,p,16c6,p,p,16g5,p,p,16e5,p,p,16a5,p,16b5,p,16a#5,16a5,p,16g5,16e6,16g6,16a6,p,16f6,16g6,p,16e6,p,16c6,16d6,16b5"
+                  - rtttl.play: "Mario:d=16,o=5,b=100:32p,e6,e6,p,e6,p,c6,e6,p,g6,8p,p,g,8p,32p,c6,8p,g,8p,e,8p,a,p,b,p,a#,a,p,g,e6,g6,a6,p,f6,g6,p,e6,p,c6,d6,b,4p,g6,f#6,f6,d#6,p,e6,p,g#,a,c6,p,a,c6,d6,8p,8d#6,p,d6,8p,8c6"
 
             - if:
                 condition:
                   lambda: 'return id(buzzer_melody).current_option() == "Nokia";'
                 then:
-                  - rtttl.play: "nokia:d=4,o=5,b=180:16e6,16d6,16f#,16g#,8c#6,8b,8d,8e,8b,8a,8c#,8e,2a"
+                  - rtttl.play: "NokiaTune:d=16,o=5,b=64:32f6,32d#6,g,a,32d6,32c6,d#,f,32c6,32a#,d,f,8a#."
 
             - if:
                 condition:
@@ -364,6 +369,36 @@ button:
                   lambda: 'return id(buzzer_melody).current_option() == "Star Wars";'
                 then:
                   - rtttl.play: "starwars:d=8,o=6,b=180:f5,f5,f5,2a#5.,2f.,d#,d,c,2a#.,4f.,d#,d,c,2a#.,4f.,d#,d,d#,2c,4p,f5,f5,f5,2a#5.,2f.,d#,d,c,2a#.,4f.,d#,d,c,2a#.,4f.,d#,d,d#,2c"
+
+            - if:
+                condition:
+                  lambda: 'return id(buzzer_melody).current_option() == "Imperial March";'
+                then:
+                  - rtttl.play: "Imperial March:o=5,d=4,b=120:e,e,e,8c,16p,16g,e,8c,16p,16g,e,p,b,b,b,8c6,16p,16g,d#,8c,16p,16g,e,8"
+
+            - if:
+                condition:
+                  lambda: 'return id(buzzer_melody).current_option() == "Happy Birthday";'
+                then:
+                  - rtttl.play: "Happy Birthday:o=5,d=4,b=125:8g.,16g,a,g,c6,2b,8g.,16g,a,g,d6,2c6,8g.,16g,g6,e6,c6,b,a,8f6.,16f6,e6,c6,d6,2c6,8g.,16g,a,g,c6,2b,8g.,16g,a,g,d6,2c6,8g.,16g,g6,e6,c6,b,a,8f6.,16f6,e6,c6,d6,2c6"
+
+            - if:
+                condition:
+                  lambda: 'return id(buzzer_melody).current_option() == "Rudolph the Red Nosed Reindeer";'
+                then:
+                  - rtttl.play: "Rudolph the Red Nosed Raindeer:o=5,d=8,b=250,b=250:g,4a,g,4e,4c6,4a,2g.,g,a,g,a,4g,4c6,2b.,4p,f,4g,f,4d,4b,4a,2g.,g,a,g,a,4g,4a,2e.,4p,g,4a,a,4e,4c6,4a,2g.,g,a,g,a,4g,4c6,2b.,4p,f,4g,f,4d,4b,4a,2g.,g,a,g,a,4g,4d6,2c6.,4p,4a,4a,4c6,4a,4g,4e,2g,4d,4e,4g,4a,4b,4b,2b,4c6,4c6,4b,4a,4g,4f,2d,g,4a,g,4e,4c6,4a,2g.,g,a,g,a,4g,4c6,2b.,4p,f,4g,f,4d,4b,4a,2g.,4g,4a,4g,4a,2g,2d6,1c6.."
+
+            - if:
+                condition:
+                  lambda: 'return id(buzzer_melody).current_option() == "Door Bell";'
+                then:
+                  - rtttl.play: "Door Bell:d=16,o=6,b=120:e,g,e,g,e,g,e,g,2p,e,g,e,g,e,g,e,g"
+
+            - if:
+                condition:
+                  lambda: 'return id(buzzer_melody).current_option() == "Office Ring";'
+                then:
+                  - rtttl.play: "Office Ring:d=32,o=6,b=160:f,g,f,g,f,g,f,g,f,g,f,g,f,g,f,g,4p,f,g,f,g,f,g,f,g,f,g,f,g,f,g,f,g"
 
   - platform: template
     name: "Play Entered RTTTL Melody"
@@ -421,6 +456,7 @@ text_sensor:
     id: esphome_version_text
     icon: mdi:chip
     entity_category: diagnostic
+    update_interval: 60s
     web_server:
       sorting_group_id: device_details_group
       sorting_weight: 10
@@ -432,6 +468,7 @@ text_sensor:
     id: firmware_build_date_text
     icon: mdi:calendar
     entity_category: diagnostic
+    update_interval: 60s
     web_server:
       sorting_group_id: device_details_group
       sorting_weight: 20
@@ -760,13 +797,17 @@ select:
     icon: mdi:music-note
     optimistic: true
     restore_value: true
-    initial_option: "Test"
+    initial_option: "Mario"
     options:
-      - "Test"
       - "Mario"
       - "Nokia"
       - "Alarm"
       - "Star Wars"
+      - "Imperial March"
+      - "Happy Birthday"
+      - "Rudolph the Red Nosed Reindeer"
+      - "Door Bell"
+      - "Office Ring"
     web_server:
       sorting_group_id: speaker_group
       sorting_weight: 80
