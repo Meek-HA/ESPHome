@@ -21,6 +21,62 @@ esphome:
           id(buttons_locked) = false;
           id(buzzer_boot_lockout) = false;
 
+      # Apply factory-default LED colors only on the very first boot
+      - if:
+          condition:
+            lambda: 'return !id(first_boot_completed);'
+          then:
+            # LED 1 ON: magenta at 40%
+            - light.turn_on:
+                id: led1_on
+                brightness: 40%
+                red: 100%
+                green: 0%
+                blue: 100%
+
+            # LED 2 ON: magenta at 40%
+            - light.turn_on:
+                id: led2_on
+                brightness: 40%
+                red: 100%
+                green: 0%
+                blue: 100%
+
+            # LED 3 ON: magenta at 40%
+            - light.turn_on:
+                id: led3_on
+                brightness: 40%
+                red: 100%
+                green: 0%
+                blue: 100%
+
+            # LED 1 OFF: warm white at 30%
+            - light.turn_on:
+                id: led1_off
+                brightness: 30%
+                red: 100%
+                green: 99.6%
+                blue: 98%
+
+            # LED 2 OFF: warm white at 30%
+            - light.turn_on:
+                id: led2_off
+                brightness: 30%
+                red: 100%
+                green: 99.6%
+                blue: 98%
+
+            # LED 3 OFF: warm white at 30%
+            - light.turn_on:
+                id: led3_off
+                brightness: 30%
+                red: 100%
+                green: 99.6%
+                blue: 98%
+
+            - lambda: |-
+                id(first_boot_completed) = true;
+
       # Sync LEDs to current output states after boot sequence
       - script.execute: sync_leds_to_outputs
 
@@ -39,8 +95,6 @@ network:
   enable_ipv6: true
 
 api:
-  encryption:
-    key: "mSI1MgycJikXY7+cmNSvQH0cRVNGTUy+7iTMfeFyM38="
 
 ota:
   - platform: esphome
@@ -91,11 +145,11 @@ web_server:
 
 mqtt:
   id: mqtt_client
-  broker: "disabled"
+  broker: "mqtt.meek-io.com"
   port: 1883
   username: ""
   password: ""
-  enable_on_boot: false
+  enable_on_boot: true
   reboot_timeout: 0s
 
 globals:
@@ -107,6 +161,11 @@ globals:
   - id: buttons_locked
     type: bool
     restore_value: no
+    initial_value: "false"
+
+  - id: first_boot_completed
+    type: bool
+    restore_value: true
     initial_value: "false"
 
 script:
@@ -214,7 +273,7 @@ text:
     mode: text
     optimistic: true
     restore_value: true
-    initial_value: "meek-io.com"
+    initial_value: "mqtt.meek-io.com"
     max_length: 64
     icon: mdi:server-network
     web_server:
@@ -386,7 +445,7 @@ button:
                 condition:
                   lambda: 'return id(buzzer_melody).current_option() == "Rudolph the Red Nosed Reindeer";'
                 then:
-                  - rtttl.play: "Rudolph the Red Nosed Raindeer:o=5,d=8,b=250,b=250:g,4a,g,4e,4c6,4a,2g.,g,a,g,a,4g,4c6,2b.,4p,f,4g,f,4d,4b,4a,2g.,g,a,g,a,4g,4a,2e.,4p,g,4a,a,4e,4c6,4a,2g.,g,a,g,a,4g,4c6,2b.,4p,f,4g,f,4d,4b,4a,2g.,g,a,g,a,4g,4d6,2c6.,4p,4a,4a,4c6,4a,4g,4e,2g,4d,4e,4g,4a,4b,4b,2b,4c6,4c6,4b,4a,4g,4f,2d,g,4a,g,4e,4c6,4a,2g.,g,a,g,a,4g,4c6,2b.,4p,f,4g,f,4d,4b,4a,2g.,4g,4a,4g,4a,2g,2d6,1c6.."
+                  - rtttl.play: "Rudolph the Red Nosed Raindeer:o=5,d=8,b=250,b=250:g,4a,g,4e,4c6,4a,2g.,g,a,g,a,4g,4c6,2b.,4p,f,4g,f,4d,4b,4a,2g.,g,a,g,a,4g,4a,2e.,4p,g,4a,a,4e,4c6,4a,2g.,g,a,g,a,4g,4d6,2c6.,4p,4a,4a,4c6,4a,4g,4e,2g,4d,4e,4g,4a,4b,4b,2b,4c6,4c6,4b,4a,4g,4f,2d,g,4a,g,4e,4c6,4a,2g.,g,a,g,a,4g,4c6,2b.,4p,f,4g,f,4d,4b,4a,2g.,4g,4a,4g,4a,2g,2d6,1c6.."
 
             - if:
                 condition:
@@ -434,6 +493,106 @@ button:
       sorting_weight: 100
     on_press:
       - rtttl.stop
+
+  - platform: template
+    name: "Reset Settings"
+    id: reset_settings_button
+    icon: mdi:restore
+    entity_category: config
+    web_server:
+      sorting_group_id: device_details_group
+      sorting_weight: 95
+    on_press:
+      - text.set:
+          id: mqtt_broker_text
+          value: "mqtt.meek-io.com"
+
+      - text.set:
+          id: mqtt_port_text
+          value: "1883"
+
+      - text.set:
+          id: rtttl_melody_text
+          value: ""
+
+      - number.set:
+          id: buzzer_pwm_frequency
+          value: 4000
+
+      - number.set:
+          id: buzzer_tone_duration
+          value: 100
+
+      - number.set:
+          id: buzzer_pwm_volume
+          value: 50
+
+      - number.set:
+          id: buzzer_volume
+          value: 50
+
+      - select.set:
+          id: buzzer_melody
+          option: "Mario"
+
+      - select.set:
+          id: led_effect_select
+          option: "Off"
+
+      - light.turn_on:
+          id: led1_on
+          brightness: 40%
+          red: 100%
+          green: 0%
+          blue: 100%
+
+      - light.turn_on:
+          id: led2_on
+          brightness: 40%
+          red: 100%
+          green: 0%
+          blue: 100%
+
+      - light.turn_on:
+          id: led3_on
+          brightness: 40%
+          red: 100%
+          green: 0%
+          blue: 100%
+
+      - light.turn_on:
+          id: led1_off
+          brightness: 30%
+          red: 100%
+          green: 99.6%
+          blue: 98%
+
+      - light.turn_on:
+          id: led2_off
+          brightness: 30%
+          red: 100%
+          green: 99.6%
+          blue: 98%
+
+      - light.turn_on:
+          id: led3_off
+          brightness: 30%
+          red: 100%
+          green: 99.6%
+          blue: 98%
+
+      - lambda: |-
+          id(first_boot_completed) = false;
+
+      - lambda: |-
+          ESP_LOGI("reset_settings", "Resetting settings to factory defaults...");
+          global_preferences->sync();
+
+      - delay: 500ms
+
+      - lambda: |-
+          ESP_LOGI("reset_settings", "Rebooting to apply factory defaults...");
+          esp_restart();
 
 text_sensor:
   - platform: template
@@ -722,7 +881,7 @@ number:
     icon: mdi:sine-wave
     optimistic: true
     restore_value: true
-    initial_value: 2000
+    initial_value: 4000
     min_value: 500
     max_value: 5000
     step: 25
@@ -743,8 +902,8 @@ number:
     icon: mdi:timer-outline
     optimistic: true
     restore_value: true
-    initial_value: 500
-    min_value: 10
+    initial_value: 100
+    min_value: 0
     max_value: 5000
     step: 50
     unit_of_measurement: "ms"
