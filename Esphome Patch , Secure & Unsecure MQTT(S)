@@ -1,0 +1,49 @@
+Docker stack:
+services:
+  esphome:
+    container_name: esphome
+    image: ghcr.io/esphome/esphome:2026.11.0b2
+    volumes:
+      - /docker/appdata/esphome/config:/config
+      - /etc/localtime:/etc/localtime:ro
+    restart: always
+    network_mode: host
+
+CLI:
+ESP=$(docker exec esphome python3 -c "import esphome,os;print(os.path.dirname(esphome.__file__))")
+mkdir -p /docker/appdata/esphome/config/components
+docker cp esphome:$ESP/components/mqtt /docker/appdata/esphome/config/components/
+
+nano mqtt_backend_esp32.h
+----------------------------------
+Replace:
+void set_ca_certificate(const char *cert) { this->ca_certificate_ = cert; }
+
+With:
+void set_ca_certificate(const char *cert) {
+  if (cert != nullptr && cert[0] != '\0') {
+    this->ca_certificate_ = cert;
+    this->force_plain_ = false;
+  } else {
+    this->ca_certificate_ = nullptr;
+    this->force_plain_ = true;
+  }
+}
+
+
+Add the following line after : const char *ca_certificate_{nullptr};
+bool force_plain_{false};
+----------------------------------
+
+nano mqtt_backend_esp32.cpp
+----------------------------------
+Replace:
+mqtt_cfg_.broker.address.transport = MQTT_TRANSPORT_OVER_SSL;
+
+With:
+ mqtt_cfg_.broker.address.transport =
+          this->force_plain_ ? MQTT_TRANSPORT_OVER_TCP : MQTT_TRANSPORT_OVER_SSL;
+----------------------------------
+
+docker exec esphome esphome clean /config/meek-mt3.yaml
+Restart container.
