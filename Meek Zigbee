@@ -7,9 +7,9 @@
 #      birth/will messages) so HA always gets and re-gets the config topics.
 #   3. apply_mqtt_settings waits 5 s before enabling MQTT, so the boot load settles
 #      before the discovery burst of ~70 entities.
-#   4. The Zigbee TCP client is parked at boot and only started after MQTT is
-#      connected (+10 s settle time), with a 30 s fallback if MQTT never connects.
-#      This keeps the TCP link from competing with the discovery burst.
+#   4. The Zigbee TCP client is parked at boot and started when MQTT connects:
+#      mqtt on_connect presses the "Zigbee Connect" button (every time MQTT
+#      (re)connects). A 30 s fallback starts it anyway if MQTT never connects.
 
 substitutions:
   # Default TCP server and port. Both can be changed at runtime from the web UI
@@ -64,7 +64,8 @@ esphome:
   on_boot:
     priority: 700
     then:
-      # NEW: park the Zigbee TCP client until MQTT is up (see zigbee_apply_mode_boot).
+      # NEW: park the Zigbee TCP client until MQTT connects (mqtt on_connect presses
+      # Zigbee Connect; zigbee_apply_mode_boot is the 30 s fallback).
       # WiFi is not connected yet at this point, so nothing is lost by doing this.
       - lambda: |-
           id(zigbee_uart).set_reconnect_interval(UINT32_MAX);
@@ -213,6 +214,12 @@ mqtt:
   # Once connected to the broker, fade the status LEDs to white
   on_connect:
     - script.execute: led_mqtt_connected
+    # Same as pressing "Zigbee Connect" in the UI: applies the active Zigbee mode
+    # (Client: Zigbee Server / Port + reconnect, Server: restart the listener)
+    - button.press: zigbee_connect_button
+  # Connection lost: status LEDs go back to red
+  on_disconnect:
+    - script.execute: led_mqtt_disconnected
 
 globals:
   - id: buzzer_boot_lockout
@@ -571,10 +578,11 @@ script:
             # Applies the Zigbee Server / Port values and connects
             - script.execute: zigbee_connect_now
 
-  # Applies the saved Zigbee mode once per boot (after WiFi is up).
-  # CHANGED: waits until MQTT is connected (so the discovery burst is not competing
-  # with the Zigbee TCP link), then 10 s more. If MQTT never connects (broker down,
-  # wrong settings) it starts anyway after 30 s, so Zigbee never depends on MQTT.
+  # Fallback start of the saved Zigbee mode (after WiFi is up).
+  # Normally the Zigbee link is started by the MQTT on_connect trigger, which presses
+  # the "Zigbee Connect" button. If MQTT is still not connected 30 s after WiFi came
+  # up (broker down, wrong settings), the mode is applied here once, so Zigbee never
+  # depends on MQTT.
   - id: zigbee_apply_mode_boot
     mode: restart
     then:
@@ -582,10 +590,13 @@ script:
           condition:
             mqtt.connected:
           timeout: 30s
-      - delay: 10s
       - if:
           condition:
             lambda: |-
+              // MQTT connected in time: its on_connect already pressed Zigbee Connect
+              if (id(mqtt_client).is_connected()) {
+                return false;
+              }
               static bool applied = false;
               if (applied) {
                 return false;
@@ -597,7 +608,7 @@ script:
                 id: zigbee_apply_mode
                 mode: !lambda 'return id(zigbee_mode);'
 
-  # Boot sequence. LED 1..4 light up one by one in red at 25% (600 ms apart).
+  # Boot sequence. LED 1..4 light up one by one in red at 25% (700 ms apart).
   # Skipped if the LED Strip light is on (e.g. an effect is running).
   - id: led_boot_sequence
     mode: single
@@ -614,7 +625,7 @@ script:
                 blue: 0%
                 brightness: 25%
                 transition_length: 0s
-            - delay: 600ms
+            - delay: 700ms
             - light.turn_on:
                 id: led2_status
                 red: 100%
@@ -622,7 +633,7 @@ script:
                 blue: 0%
                 brightness: 25%
                 transition_length: 0s
-            - delay: 600ms
+            - delay: 700ms
             - light.turn_on:
                 id: led3_status
                 red: 100%
@@ -630,7 +641,7 @@ script:
                 blue: 0%
                 brightness: 25%
                 transition_length: 0s
-            - delay: 600ms
+            - delay: 700ms
             - light.turn_on:
                 id: led4_status
                 red: 100%
@@ -646,6 +657,8 @@ script:
   - id: led_mqtt_connected
     mode: restart
     then:
+      # A pending "disconnected" fade must not overwrite the white
+      - script.stop: led_mqtt_disconnected
       - wait_until:
           condition:
             lambda: 'return id(led_boot_done);'
@@ -682,6 +695,50 @@ script:
                 blue: 100%
                 brightness: 25%
                 transition_length: 2s
+
+  # MQTT connection lost. All 4 LEDs fade back to red at 25% over 1 s (same red as
+  # the boot sequence). Skipped while an effect runs on the LED Strip.
+  - id: led_mqtt_disconnected
+    mode: restart
+    then:
+      # Cancel a running "connected" fade to white
+      - script.stop: led_mqtt_connected
+      - wait_until:
+          condition:
+            lambda: 'return id(led_boot_done);'
+          timeout: 10s
+      - if:
+          condition:
+            light.is_off: led_strip
+          then:
+            - light.turn_on:
+                id: led1_status
+                red: 100%
+                green: 0%
+                blue: 0%
+                brightness: 25%
+                transition_length: 1s
+            - light.turn_on:
+                id: led2_status
+                red: 100%
+                green: 0%
+                blue: 0%
+                brightness: 25%
+                transition_length: 1s
+            - light.turn_on:
+                id: led3_status
+                red: 100%
+                green: 0%
+                blue: 0%
+                brightness: 25%
+                transition_length: 1s
+            - light.turn_on:
+                id: led4_status
+                red: 100%
+                green: 0%
+                blue: 0%
+                brightness: 25%
+                transition_length: 1s
 
 text:
   - platform: template
@@ -1553,6 +1610,55 @@ select:
     web_server:
       sorting_group_id: speaker_group
       sorting_weight: 80
+
+  # Drop-down for the LED Strip effects (shows up in Home Assistant like the Speaker
+  # Melody select). The option names must match the effect names of the "LED Strip" light.
+  # Not restored at boot, so the strip always starts in status-LED mode.
+  - platform: template
+    name: "LED Effect"
+    id: led_effect_select
+    entity_category: ""
+    icon: mdi:flash-outline
+    optimistic: true
+    restore_value: false
+    initial_option: "Off"
+    options:
+      - "Off"
+      - "Pulse"
+      - "Strobe"
+      - "Flicker"
+      - "Scan"
+      - "Rainbow"
+      - "Color Wipe"
+      - "Twinkle"
+      - "Random Twinkle"
+      - "Fireworks"
+    web_server:
+      sorting_group_id: sensors_control_group
+      sorting_weight: 7
+    set_action:
+      - if:
+          condition:
+            lambda: 'return x == "Off";'
+          then:
+            # Effect off: switch the strip off, then bring the status LEDs back
+            # (red when MQTT is down, white when it is connected)
+            - light.turn_off:
+                id: led_strip
+                transition_length: 0s
+            - delay: 100ms
+            - if:
+                condition:
+                  mqtt.connected:
+                then:
+                  - script.execute: led_mqtt_connected
+                else:
+                  - script.execute: led_mqtt_disconnected
+          else:
+            - light.turn_on:
+                id: led_strip
+                effect: !lambda 'return x;'
+                brightness: 100%
 
 switch:
   # Zigbee link mode. Only one of these two can be on; turning one on turns the
