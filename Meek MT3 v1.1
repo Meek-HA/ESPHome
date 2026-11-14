@@ -24,7 +24,7 @@ wifi:
       - script.execute: apply_mqtt_settings
   ap:
     ssid: Meek MT3 Fallback Hotspot
-    password: "www.meek-io.com"
+    password: "[www.meek-io.com](https://www.meek-io.com)"
 captive_portal:
   
 esphome:
@@ -157,6 +157,10 @@ mqtt:
   password: ""
   enable_on_boot: false
   reboot_timeout: 0s
+  # ADDED: the default ("legacy") unique ID is only "ESP" + type + name
+  # (e.g. ESPbuttonstop_speaker), which collides with other Meek devices in
+  # Home Assistant. "mac" puts this device's MAC address in the unique ID.
+  discovery_unique_id_generator: mac
   # Kept so USE_MQTT_TLS is defined and the cert setters get generated.
   # The script below clears/overrides it at runtime based on the security select.
   certificate_authority: "-----BEGIN CERTIFICATE----- MIIFnzCCA4egAwIBAgIUWU6ZQJOY1WCmKGIqILKpyVMZFccwDQYJKoZIhvcNAQEL BQAwXzELMAkGA1UEBhMCTkwxEDAOBgNVBAgMB1plZWxhbmQxEzARBgNVBAcMCk1p ZGRlbGJ1cmcxDTALBgNVBAoMBE1lZWsxGjAYBgNVBAMMEU1lZWsgTVFUVCBSb290 IENBMB4XDTI2MTAxMTEwMTIzMFoXDTM2MTAwODEwMTIzMFowXzELMAkGA1UEBhMC TkwxEDAOBgNVBAgMB1plZWxhbmQxEzARBgNVBAcMCk1pZGRlbGJ1cmcxDTALBgNV BAoMBE1lZWsxGjAYBgNVBAMMEU1lZWsgTVFUVCBSb290IENBMIICIjANBgkqhkiG 9w0BAQEFAAOCAg8AMIICCgKCAgEAoad7C1xkCGIplaWH2TpCUKoRFiqJGHMxh4Kb gHuLzROwDCyqcUPcToQPUsfy9soSY7/pdTgH5lsbG6hd1JHSeRV0d2yu8oDvstpk rkgNECSvX2uw3oP5cJvaDGmUTcu9CT0FlBfz9tigO1yIndSeBDxuFh661dNtmV6d IVOGZ2dVl72F8W+tTe39qVrufQfafjhL72OsOki9AfRKqGCnb5wegHIAZf3zxH0g aus8guvbRLrPQhlSRyIJ6QmdKcMwh0Y+h23/G2utE4dqxzEI4Pv6nzeEW0ceUYmn DNzx24V/QvfEoWsfnjsvBCeUCPC5oiPWqo57zlcZ6eqS1tNB8K2MFqU3HT9yCS04 3GsXo6ZGMWfACYTZYiQyzqAPv+LncGIIQZ4eNgGCtigMCM+VsAWxGCKzz3PIp4Mo 31H7etUNYlSQy9oE1XFlaOMxE/irXS5i7/YoRR15lk9Gs0pPlWs+BqYMsBJUc1wc oOTx2kteDsD5BMVkncm/dB+wE2xrY1XiZMCMsfu39b/FAWlvjUiIqzWNBxkMyBRg kh/be6FOHPrNeNw3TXj86icHK8XWRqyyDQA03GEQLyvvrXfxmu3QTIA1xxuczHpr r4EBpoyACuNDbM+HX1eIGvtyijni2sFxEYH/eIZ1MbQh6m2mfya0D+76OF0+ARg4 1yS+hksCAwEAAaNTMFEwHQYDVR0OBBYEFEKGqish34vmEFBVF4DIgm1SqY+4MB8G A1UdIwQYMBaAFEKGqish34vmEFBVF4DIgm1SqY+4MA8GA1UdEwEB/wQFMAMBAf8w DQYJKoZIhvcNAQELBQADggIBAJg+secHLCSDG/WG1zBcABC/SfFgpJTHTztHh1C3 S9U1CUi65Xddy9J8LieFanuFSVs8TLOYWWfdsNcOyTDFJAX9yszxsLwPih0cVtmK LNWlfad2OegEuDJnUPT/WaP5KM2WO3sgw2XWnjeJo+AJz08AV/IkylqRp1rdG0vK FBn60w4P60nTOf/FvPcZYU8JDgZSApO8yE8f/rhKcu58NOaH7IYsV7lygejwv71S +qPMOBaBjJM+B36VlZeFfsJe+iaRFwkI/2yiCnlclQwQ/KdbhtrMc6r+NjSYzHZA Lg0uNBcY10fbofrb0iRFZ1QzvQ0QBvNdpQKayvt+X0I9b04q0n1kroLK0pQiSTpz iLd7DF8WfIm+UqByrZcRIn9w78gKkcqDbIxyp9LFSPXx+ozzHIFaXaLTvtoeRQhk QcCvW8LZ+NBl8eBphCFJ9zle47NEzhn1iAwsVlHk6Df7/Cpt4Tvq/Yp6ANys2pxs 0oYUfbU3EITtWZQn7NjML12c79uh1YHbAgus3MOXA+/4b5/DSZ8KIT4EoIJpiXUz uzb6jap5UjD862l6Yzv3JUpe0KfrV9m6WdKfyU39xVxTVdf33exfq5Q8jDHJ/Xde ZPXDgbxluIIwoMzQ2QxeL5M2NxS1j6VT9PHdYflBPte1Oz5L1GTfdekwovE7vnCn 63nY -----END CERTIFICATE-----"
