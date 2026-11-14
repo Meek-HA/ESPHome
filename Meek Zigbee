@@ -8,6 +8,10 @@ substitutions:
   zigbee_port: "6638"
   # UART speed to the E72-2G4M20S1E (must match the coordinator firmware)
   zigbee_baud: "115200"
+  # Default listening port in Zigbee Server mode. In use at power-up until the saved
+  # mode is applied, and the fallback if "Zigbee Port" is invalid. At runtime the
+  # server listens on the port entered in "Zigbee Port".
+  zigbee_server_port: "8888"
 
 external_components:
   # Patched MQTT component from /config/components/mqtt
@@ -34,20 +38,23 @@ wifi:
   on_connect:
     then:
       - script.execute: apply_zigbee_settings
+      - script.execute: zigbee_apply_mode_boot
       - script.execute: apply_mqtt_settings
   ap:
     ssid: Meek Zigbee Fallback Hotspot
-    password: "www.meek-io.com"
+    password: "[www.meek-io.com](https://www.meek-io.com)"
 captive_portal:
   
 esphome:
   name: meek-zigbee
   friendly_name: Meek Zigbee
-  name_add_mac_suffix: true
+  name_add_mac_suffix: false
 
   on_boot:
     priority: 700
     then:
+      # NEW: LEDs light up one by one in red (runs in parallel with the rest)
+      - script.execute: led_boot_sequence
       - delay: 1s
       - lambda: |-
           id(buzzer_boot_lockout) = false;
@@ -68,6 +75,9 @@ esp32:
     type: esp-idf
 
 logger:
+  logs:
+    # The idle client logs every dropped chunk at DEBUG while in Server mode
+    uart_tcp_client: INFO
 
 debug:
   update_interval: 30s
@@ -100,9 +110,22 @@ uart_tcp_client:
   # so a long timeout is used instead.
   stall_timeout: 600s
 
-# Transparent byte bridge: E72 serial port <-> TCP server
+# Zigbee serial link: TCP server that acts as a UART (Zigbee Server mode).
+# Only one of client / server is active at a time (see the Zigbee Client Mode /
+# Zigbee Server Mode switches and the zigbee_apply_mode script). The inactive
+# side is parked at runtime: the client stops reconnecting, and the server stops
+# listening. The port below is only the initial one; zigbee_apply_mode restarts
+# the listener on the port entered in "Zigbee Port".
+uart_tcp_server:
+  id: zigbee_server
+  port: ${zigbee_server_port}
+  # One Zigbee host at a time; a new connection replaces a stale one
+  max_clients: 1
+  client_mode: exclusive
+
+# Transparent byte bridge: E72 serial port <-> TCP client / TCP server
 uart_bridge:
-  uarts: [zigbee_hw_uart, zigbee_uart]
+  uarts: [zigbee_hw_uart, zigbee_uart, zigbee_server]
   buffer_size: 512
 
 time:
@@ -151,6 +174,9 @@ mqtt:
   # The script below clears/overrides it at runtime based on the security select.
   certificate_authority: "-----BEGIN CERTIFICATE----- MIIFnzCCA4egAwIBAgIUWU6ZQJOY1WCmKGIqILKpyVMZFccwDQYJKoZIhvcNAQEL BQAwXzELMAkGA1UEBhMCTkwxEDAOBgNVBAgMB1plZWxhbmQxEzARBgNVBAcMCk1p ZGRlbGJ1cmcxDTALBgNVBAoMBE1lZWsxGjAYBgNVBAMMEU1lZWsgTVFUVCBSb290 IENBMB4XDTI2MTAxMTEwMTIzMFoXDTM2MTAwODEwMTIzMFowXzELMAkGA1UEBhMC TkwxEDAOBgNVBAgMB1plZWxhbmQxEzARBgNVBAcMCk1pZGRlbGJ1cmcxDTALBgNV BAoMBE1lZWsxGjAYBgNVBAMMEU1lZWsgTVFUVCBSb290IENBMIICIjANBgkqhkiG 9w0BAQEFAAOCAg8AMIICCgKCAgEAoad7C1xkCGIplaWH2TpCUKoRFiqJGHMxh4Kb gHuLzROwDCyqcUPcToQPUsfy9soSY7/pdTgH5lsbG6hd1JHSeRV0d2yu8oDvstpk rkgNECSvX2uw3oP5cJvaDGmUTcu9CT0FlBfz9tigO1yIndSeBDxuFh661dNtmV6d IVOGZ2dVl72F8W+tTe39qVrufQfafjhL72OsOki9AfRKqGCnb5wegHIAZf3zxH0g aus8guvbRLrPQhlSRyIJ6QmdKcMwh0Y+h23/G2utE4dqxzEI4Pv6nzeEW0ceUYmn DNzx24V/QvfEoWsfnjsvBCeUCPC5oiPWqo57zlcZ6eqS1tNB8K2MFqU3HT9yCS04 3GsXo6ZGMWfACYTZYiQyzqAPv+LncGIIQZ4eNgGCtigMCM+VsAWxGCKzz3PIp4Mo 31H7etUNYlSQy9oE1XFlaOMxE/irXS5i7/YoRR15lk9Gs0pPlWs+BqYMsBJUc1wc oOTx2kteDsD5BMVkncm/dB+wE2xrY1XiZMCMsfu39b/FAWlvjUiIqzWNBxkMyBRg kh/be6FOHPrNeNw3TXj86icHK8XWRqyyDQA03GEQLyvvrXfxmu3QTIA1xxuczHpr r4EBpoyACuNDbM+HX1eIGvtyijni2sFxEYH/eIZ1MbQh6m2mfya0D+76OF0+ARg4 1yS+hksCAwEAAaNTMFEwHQYDVR0OBBYEFEKGqish34vmEFBVF4DIgm1SqY+4MB8G A1UdIwQYMBaAFEKGqish34vmEFBVF4DIgm1SqY+4MA8GA1UdEwEB/wQFMAMBAf8w DQYJKoZIhvcNAQELBQADggIBAJg+secHLCSDG/WG1zBcABC/SfFgpJTHTztHh1C3 S9U1CUi65Xddy9J8LieFanuFSVs8TLOYWWfdsNcOyTDFJAX9yszxsLwPih0cVtmK LNWlfad2OegEuDJnUPT/WaP5KM2WO3sgw2XWnjeJo+AJz08AV/IkylqRp1rdG0vK FBn60w4P60nTOf/FvPcZYU8JDgZSApO8yE8f/rhKcu58NOaH7IYsV7lygejwv71S +qPMOBaBjJM+B36VlZeFfsJe+iaRFwkI/2yiCnlclQwQ/KdbhtrMc6r+NjSYzHZA Lg0uNBcY10fbofrb0iRFZ1QzvQ0QBvNdpQKayvt+X0I9b04q0n1kroLK0pQiSTpz iLd7DF8WfIm+UqByrZcRIn9w78gKkcqDbIxyp9LFSPXx+ozzHIFaXaLTvtoeRQhk QcCvW8LZ+NBl8eBphCFJ9zle47NEzhn1iAwsVlHk6Df7/Cpt4Tvq/Yp6ANys2pxs 0oYUfbU3EITtWZQn7NjML12c79uh1YHbAgus3MOXA+/4b5/DSZ8KIT4EoIJpiXUz uzb6jap5UjD862l6Yzv3JUpe0KfrV9m6WdKfyU39xVxTVdf33exfq5Q8jDHJ/Xde ZPXDgbxluIIwoMzQ2QxeL5M2NxS1j6VT9PHdYflBPte1Oz5L1GTfdekwovE7vnCn 63nY -----END CERTIFICATE-----"
   skip_cert_cn_check: false
+  # NEW: once connected to the broker, fade the status LEDs to white
+  on_connect:
+    - script.execute: led_mqtt_connected
 
 globals:
   - id: buzzer_boot_lockout
@@ -162,6 +188,18 @@ globals:
     type: bool
     restore_value: no
     initial_value: "false"
+
+  # NEW: true once the red boot sequence has finished
+  - id: led_boot_done
+    type: bool
+    restore_value: no
+    initial_value: "false"
+
+  # NEW: active Zigbee link mode, survives reboots: "client", "server" or "none"
+  - id: zigbee_mode
+    type: std::string
+    restore_value: true
+    initial_value: '"client"'
 
   - id: mqtt_password_real
     type: std::string
@@ -334,6 +372,269 @@ script:
           id(zigbee_uart).set_host(host.c_str());
           id(zigbee_uart).set_port(static_cast<uint16_t>(port_value));
           ESP_LOGI("zigbee_config", "Zigbee TCP target set to %s:%u", host.c_str(), (unsigned) port_value);
+
+  # NEW: Applies the current Zigbee Server / Port values and forces a reconnect.
+  # Unlike apply_zigbee_settings, this runs every time it is called.
+  # NOTE: assumes uart_tcp_client exposes disconnect() (see ASSUMED below).
+  - id: zigbee_connect_now
+    mode: restart
+    then:
+      - lambda: |-
+          if (id(zigbee_mode) != "client") {
+            ESP_LOGW("zigbee_config", "Connect ignored: not in Client mode.");
+            return;
+          }
+
+          // Two buffers, alternated, so the pointer given to the component
+          // is never freed while it may still be in use.
+          static std::string bufs[2];
+          static uint8_t idx = 0;
+
+          const std::string host = id(zigbee_host_text).state;
+          const std::string port_text = id(zigbee_port_text).state;
+
+          if (host.empty() || port_text.empty()) {
+            ESP_LOGE("zigbee_config", "Connect aborted: host or port is empty.");
+            return;
+          }
+
+          uint32_t port_value = 0;
+          for (char c : port_text) {
+            if (c < '0' || c > '9') {
+              ESP_LOGE("zigbee_config", "Connect aborted: port contains non-digit characters.");
+              return;
+            }
+            port_value = (port_value * 10) + (c - '0');
+            if (port_value > 65535) {
+              ESP_LOGE("zigbee_config", "Connect aborted: port is outside the valid range.");
+              return;
+            }
+          }
+          if (port_value < 1) {
+            ESP_LOGE("zigbee_config", "Connect aborted: port must be between 1 and 65535.");
+            return;
+          }
+
+          idx ^= 1;
+          bufs[idx] = host;
+          id(zigbee_uart).set_host(bufs[idx].c_str());
+          id(zigbee_uart).set_port(static_cast<uint16_t>(port_value));
+          ESP_LOGI("zigbee_config", "Connecting to %s:%u", bufs[idx].c_str(), (unsigned) port_value);
+
+          // disconnect_() is protected in uart_tcp_client. A derived struct
+          // re-exposes it, so we can call it without editing the component.
+          struct ZigbeeAccess : esphome::uart_tcp_client::UARTTCPClientComponent {
+            using esphome::uart_tcp_client::UARTTCPClientComponent::disconnect_;
+          };
+          auto drop_connection = &ZigbeeAccess::disconnect_;
+          (id(zigbee_uart).*drop_connection)();
+
+  # NEW: Switches the Zigbee link between Client, Server and none.
+  # mode: "client" | "server" | "none". Only one side is ever active.
+  - id: zigbee_apply_mode
+    mode: restart
+    parameters:
+      mode: string
+    then:
+      - lambda: |-
+          id(zigbee_mode) = mode;
+          const bool want_client = (mode == "client");
+          const bool want_server = (mode == "server");
+
+          // --- Client side ---
+          if (want_client) {
+            // Let the client (re)connect automatically again
+            id(zigbee_uart).set_reconnect_interval(5000);
+          } else {
+            // Never auto-reconnect, then drop the current socket / connect attempt.
+            // disconnect_() is protected, so a derived struct re-exposes it.
+            id(zigbee_uart).set_reconnect_interval(UINT32_MAX);
+            struct ZigbeeAccess : esphome::uart_tcp_client::UARTTCPClientComponent {
+              using esphome::uart_tcp_client::UARTTCPClientComponent::disconnect_;
+            };
+            auto drop_connection = &ZigbeeAccess::disconnect_;
+            (id(zigbee_uart).*drop_connection)();
+          }
+
+          // --- Server side ---
+          // port_ and tcp_server_ are protected in uart_tcp_server, so a derived
+          // struct re-exposes them.
+          using esphome::uart_tcp_server::UARTTCPServerComponent;
+          struct ServerAccess : UARTTCPServerComponent {
+            using UARTTCPServerComponent::port_;
+            using UARTTCPServerComponent::tcp_server_;
+            using UARTTCPServerComponent::accept_client_;
+          };
+          UARTTCPServerComponent *srv = id(zigbee_server);
+          AsyncServer *&tcp = srv->*(&ServerAccess::tcp_server_);
+          uint16_t &listen_port = srv->*(&ServerAccess::port_);
+
+          if (want_server) {
+            // Listening port = the value entered in "Zigbee Port"
+            const std::string port_text = id(zigbee_port_text).state;
+            uint32_t port_value = 0;
+            bool port_ok = !port_text.empty();
+            for (char c : port_text) {
+              if (c < '0' || c > '9') {
+                port_ok = false;
+                break;
+              }
+              port_value = (port_value * 10) + (c - '0');
+              if (port_value > 65535) {
+                port_ok = false;
+                break;
+              }
+            }
+            if (port_value < 1) {
+              port_ok = false;
+            }
+            if (!port_ok) {
+              port_value = ${zigbee_server_port};
+              ESP_LOGE("zigbee_config", "Invalid Zigbee Port, listening on default port %u", (unsigned) port_value);
+            }
+
+            if (tcp == nullptr || listen_port != static_cast<uint16_t>(port_value)) {
+              // Different port: stop the old listener and create a new one. The old
+              // AsyncServer object is deliberately not deleted, because the TCP task
+              // may still hold a pointer to it.
+              if (tcp != nullptr) {
+                tcp->end();
+              }
+              listen_port = static_cast<uint16_t>(port_value);
+              tcp = new AsyncServer(listen_port);
+              static auto accept = &ServerAccess::accept_client_;
+              tcp->onClient(
+                  [](void *arg, AsyncClient *client) {
+                    (static_cast<UARTTCPServerComponent *>(arg)->*accept)(client);
+                  },
+                  srv);
+            }
+            tcp->begin();  // does nothing if it is already listening
+            srv->set_idle_timeout(0);
+            ESP_LOGI("zigbee_config", "Zigbee server listening on port %u", (unsigned) listen_port);
+          } else {
+            // Stop listening, and an idle timeout of 1 ms makes the server close
+            // any client that is still connected.
+            if (tcp != nullptr) {
+              tcp->end();
+            }
+            srv->set_idle_timeout(1);
+          }
+
+          // Keep both switches consistent (publish_state does not trigger their actions)
+          id(zigbee_client_mode_switch).publish_state(want_client);
+          id(zigbee_server_mode_switch).publish_state(want_server);
+          ESP_LOGI("zigbee_config", "Zigbee mode: %s", mode.c_str());
+      - if:
+          condition:
+            lambda: 'return id(zigbee_mode) == "client";'
+          then:
+            # Applies the Zigbee Server / Port values and connects
+            - script.execute: zigbee_connect_now
+
+  # NEW: Applies the saved Zigbee mode once per boot (after WiFi is up)
+  - id: zigbee_apply_mode_boot
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: |-
+              static bool applied = false;
+              if (applied) {
+                return false;
+              }
+              applied = true;
+              return true;
+          then:
+            - script.execute:
+                id: zigbee_apply_mode
+                mode: !lambda 'return id(zigbee_mode);'
+
+  # NEW: Boot sequence. LED 1..4 light up one by one in red at 25% (600 ms apart).
+  # Skipped if the LED Strip light is on (e.g. an effect is running).
+  - id: led_boot_sequence
+    mode: single
+    then:
+      - delay: 500ms
+      - if:
+          condition:
+            light.is_off: led_strip
+          then:
+            - light.turn_on:
+                id: led1_status
+                red: 100%
+                green: 0%
+                blue: 0%
+                brightness: 25%
+                transition_length: 0s
+            - delay: 600ms
+            - light.turn_on:
+                id: led2_status
+                red: 100%
+                green: 0%
+                blue: 0%
+                brightness: 25%
+                transition_length: 0s
+            - delay: 600ms
+            - light.turn_on:
+                id: led3_status
+                red: 100%
+                green: 0%
+                blue: 0%
+                brightness: 25%
+                transition_length: 0s
+            - delay: 600ms
+            - light.turn_on:
+                id: led4_status
+                red: 100%
+                green: 0%
+                blue: 0%
+                brightness: 25%
+                transition_length: 0s
+      - lambda: |-
+          id(led_boot_done) = true;
+
+  # NEW: MQTT connected. All 4 LEDs fade from red to white at 25% over 2 s.
+  # Waits for the boot sequence to finish, and is skipped while an effect runs.
+  - id: led_mqtt_connected
+    mode: restart
+    then:
+      - wait_until:
+          condition:
+            lambda: 'return id(led_boot_done);'
+          timeout: 10s
+      - if:
+          condition:
+            light.is_off: led_strip
+          then:
+            - light.turn_on:
+                id: led1_status
+                red: 100%
+                green: 100%
+                blue: 100%
+                brightness: 25%
+                transition_length: 2s
+            - light.turn_on:
+                id: led2_status
+                red: 100%
+                green: 100%
+                blue: 100%
+                brightness: 25%
+                transition_length: 2s
+            - light.turn_on:
+                id: led3_status
+                red: 100%
+                green: 100%
+                blue: 100%
+                brightness: 25%
+                transition_length: 2s
+            - light.turn_on:
+                id: led4_status
+                red: 100%
+                green: 100%
+                blue: 100%
+                brightness: 25%
+                transition_length: 2s
 
 text:
   - platform: template
@@ -520,6 +821,22 @@ button:
                 level: WARN
                 format: "WiFi reset armed. Press the button again within 10 seconds to confirm."
             - script.execute: wifi_reset_arm_timer
+
+  # NEW: Applies the Zigbee settings for the active mode (see zigbee_apply_mode)
+  - platform: template
+    name: "Zigbee Connect"
+    id: zigbee_connect_button
+    icon: mdi:lan-connect
+    entity_category: ""
+    web_server:
+      sorting_group_id: zigbee_details_group
+      sorting_weight: 25
+    on_press:
+      # Client mode: applies Zigbee Server / Port and reconnects.
+      # Server mode: restarts the listener on the Zigbee Port.
+      - script.execute:
+          id: zigbee_apply_mode
+          mode: !lambda 'return id(zigbee_mode);'
 
   # Pulses the E72 reset line (GPIO16) for 100 ms
   - platform: template
@@ -733,12 +1050,10 @@ button:
       - select.set:
           id: buzzer_melody
           option: "Mario"
-      - select.set:
-          id: led_effect_select
-          option: "Off"
       - lambda: |-
           id(mqtt_password_real) = "";
           id(mqtt_password_text).publish_state("");
+          id(zigbee_mode) = "client";
       - lambda: |-
           ESP_LOGI("reset_settings", "Resetting settings to factory defaults...");
           global_preferences->sync();
@@ -1063,7 +1378,7 @@ light:
 
 output:
   - platform: ledc
-    pin: GPIO25
+    pin: GPIO26
     id: buzzer_output
     frequency: 2000 Hz
 
@@ -1192,42 +1507,48 @@ select:
       sorting_group_id: speaker_group
       sorting_weight: 80
 
-  - platform: template
-    name: "LED Effect"
-    id: led_effect_select
-    entity_category: ""
-    icon: mdi:flash-outline
-    optimistic: true
-    restore_value: true
-    initial_option: "Off"
-    options:
-      - "Off"
-      - "Pulse"
-      - "Strobe"
-      - "Flicker"
-      - "Scan"
-      - "Rainbow"
-      - "Color Wipe"
-      - "Twinkle"
-      - "Random Twinkle"
-      - "Fireworks"
-    web_server:
-      sorting_group_id: sensors_control_group
-      sorting_weight: 7
-    on_value:
-      then:
-        - if:
-            condition:
-              lambda: 'return x == "Off";'
-            then:
-              - light.turn_off: led_strip
-            else:
-              - light.turn_on:
-                  id: led_strip
-                  effect: !lambda 'return x;'
-                  brightness: 100%
-
 switch:
+  # NEW: Zigbee link mode. Only one of these two can be on; turning one on turns the
+  # other off. Both off = Zigbee link closed. The state is restored from the
+  # zigbee_mode global after WiFi connects, hence restore_mode: DISABLED.
+  - platform: template
+    id: zigbee_client_mode_switch
+    name: "Zigbee Client Mode"
+    icon: mdi:lan-connect
+    entity_category: ""
+    optimistic: true
+    restore_mode: DISABLED
+    web_server:
+      sorting_group_id: zigbee_details_group
+      sorting_weight: 1
+    turn_on_action:
+      - script.execute:
+          id: zigbee_apply_mode
+          mode: "client"
+    turn_off_action:
+      - script.execute:
+          id: zigbee_apply_mode
+          mode: "none"
+
+  - platform: template
+    id: zigbee_server_mode_switch
+    name: "Zigbee Server Mode"
+    icon: mdi:server-network
+    entity_category: ""
+    optimistic: true
+    restore_mode: DISABLED
+    web_server:
+      sorting_group_id: zigbee_details_group
+      sorting_weight: 2
+    turn_on_action:
+      - script.execute:
+          id: zigbee_apply_mode
+          mode: "server"
+    turn_off_action:
+      - script.execute:
+          id: zigbee_apply_mode
+          mode: "none"
+
   # E72 BSL pin (GPIO27): switch ON = pin driven LOW = bootloader requested
   - platform: gpio
     id: zigbee_bsl_pin
