@@ -1,5 +1,15 @@
 # Board: Generic ESP32 Board (Generic)
 # Device: Meek Zigbee (derived from Meek MT3)
+#
+# CHANGES vs. previous version (MQTT discovery / Home Assistant visibility):
+#   1. Removed the native "api:" block (HA is connected via MQTT only) -> frees heap.
+#   2. mqtt: discovery options set explicitly (retained discovery, HA prefix,
+#      birth/will messages) so HA always gets and re-gets the config topics.
+#   3. apply_mqtt_settings waits 5 s before enabling MQTT, so the boot load settles
+#      before the discovery burst of ~70 entities.
+#   4. The Zigbee TCP client is parked at boot and only started after MQTT is
+#      connected (+10 s settle time), with a 30 s fallback if MQTT never connects.
+#      This keeps the TCP link from competing with the discovery burst.
 
 substitutions:
   # Default TCP server and port. Both can be changed at runtime from the web UI
@@ -25,12 +35,13 @@ external_components:
       type: git
       url: https://github.com/nebulous/esphome-uart-link
 
-api:
-  reboot_timeout: 0s
-    
+# NOTE: "api:" removed on purpose (Home Assistant uses MQTT only).
+# Side effect: "esphome logs" over WiFi no longer works; use the web UI log
+# view (web_server v3) or the serial port instead.
+
 ota:
   - platform: esphome
-    
+
 wifi:
   reboot_timeout: 0s
   ssid: !secret wifi_ssid
@@ -44,7 +55,7 @@ wifi:
     ssid: Meek Zigbee Fallback Hotspot
     password: "[www.meek-io.com](https://www.meek-io.com)"
 captive_portal:
-  
+
 esphome:
   name: meek-zigbee
   friendly_name: Meek Zigbee
@@ -53,7 +64,12 @@ esphome:
   on_boot:
     priority: 700
     then:
-      # NEW: LEDs light up one by one in red (runs in parallel with the rest)
+      # NEW: park the Zigbee TCP client until MQTT is up (see zigbee_apply_mode_boot).
+      # WiFi is not connected yet at this point, so nothing is lost by doing this.
+      - lambda: |-
+          id(zigbee_uart).set_reconnect_interval(UINT32_MAX);
+
+      # LEDs light up one by one in red (runs in parallel with the rest)
       - script.execute: led_boot_sequence
       - delay: 1s
       - lambda: |-
@@ -170,11 +186,31 @@ mqtt:
   password: ""
   enable_on_boot: false
   reboot_timeout: 0s
+  # Home Assistant MQTT discovery. discovery / discovery_retain / discovery_prefix
+  # are the ESPHome defaults, set explicitly here so it is obvious they matter:
+  # retained discovery topics survive an HA restart and a broker restart.
+  # discovery_prefix MUST match the MQTT integration's prefix in Home Assistant.
+  discovery: true
+  discovery_retain: true
+  discovery_prefix: homeassistant
+  # ROOT CAUSE FIX: the default ("legacy") unique ID is only "ESP" + type + name
+  # (e.g. ESPbuttonstop_speaker), so it collided with the Meek MT3 device and HA
+  # ignored every entity with a shared name. "mac" puts this device's MAC in the ID.
+  discovery_unique_id_generator: mac
+  # Availability: entities show "unavailable" in HA when the device is offline.
+  birth_message:
+    topic: meek-zigbee/status
+    payload: online
+    retain: true
+  will_message:
+    topic: meek-zigbee/status
+    payload: offline
+    retain: true
   # Kept so USE_MQTT_TLS is defined and the cert setters get generated.
   # The script below clears/overrides it at runtime based on the security select.
   certificate_authority: "-----BEGIN CERTIFICATE----- MIIFnzCCA4egAwIBAgIUWU6ZQJOY1WCmKGIqILKpyVMZFccwDQYJKoZIhvcNAQEL BQAwXzELMAkGA1UEBhMCTkwxEDAOBgNVBAgMB1plZWxhbmQxEzARBgNVBAcMCk1p ZGRlbGJ1cmcxDTALBgNVBAoMBE1lZWsxGjAYBgNVBAMMEU1lZWsgTVFUVCBSb290 IENBMB4XDTI2MTAxMTEwMTIzMFoXDTM2MTAwODEwMTIzMFowXzELMAkGA1UEBhMC TkwxEDAOBgNVBAgMB1plZWxhbmQxEzARBgNVBAcMCk1pZGRlbGJ1cmcxDTALBgNV BAoMBE1lZWsxGjAYBgNVBAMMEU1lZWsgTVFUVCBSb290IENBMIICIjANBgkqhkiG 9w0BAQEFAAOCAg8AMIICCgKCAgEAoad7C1xkCGIplaWH2TpCUKoRFiqJGHMxh4Kb gHuLzROwDCyqcUPcToQPUsfy9soSY7/pdTgH5lsbG6hd1JHSeRV0d2yu8oDvstpk rkgNECSvX2uw3oP5cJvaDGmUTcu9CT0FlBfz9tigO1yIndSeBDxuFh661dNtmV6d IVOGZ2dVl72F8W+tTe39qVrufQfafjhL72OsOki9AfRKqGCnb5wegHIAZf3zxH0g aus8guvbRLrPQhlSRyIJ6QmdKcMwh0Y+h23/G2utE4dqxzEI4Pv6nzeEW0ceUYmn DNzx24V/QvfEoWsfnjsvBCeUCPC5oiPWqo57zlcZ6eqS1tNB8K2MFqU3HT9yCS04 3GsXo6ZGMWfACYTZYiQyzqAPv+LncGIIQZ4eNgGCtigMCM+VsAWxGCKzz3PIp4Mo 31H7etUNYlSQy9oE1XFlaOMxE/irXS5i7/YoRR15lk9Gs0pPlWs+BqYMsBJUc1wc oOTx2kteDsD5BMVkncm/dB+wE2xrY1XiZMCMsfu39b/FAWlvjUiIqzWNBxkMyBRg kh/be6FOHPrNeNw3TXj86icHK8XWRqyyDQA03GEQLyvvrXfxmu3QTIA1xxuczHpr r4EBpoyACuNDbM+HX1eIGvtyijni2sFxEYH/eIZ1MbQh6m2mfya0D+76OF0+ARg4 1yS+hksCAwEAAaNTMFEwHQYDVR0OBBYEFEKGqish34vmEFBVF4DIgm1SqY+4MB8G A1UdIwQYMBaAFEKGqish34vmEFBVF4DIgm1SqY+4MA8GA1UdEwEB/wQFMAMBAf8w DQYJKoZIhvcNAQELBQADggIBAJg+secHLCSDG/WG1zBcABC/SfFgpJTHTztHh1C3 S9U1CUi65Xddy9J8LieFanuFSVs8TLOYWWfdsNcOyTDFJAX9yszxsLwPih0cVtmK LNWlfad2OegEuDJnUPT/WaP5KM2WO3sgw2XWnjeJo+AJz08AV/IkylqRp1rdG0vK FBn60w4P60nTOf/FvPcZYU8JDgZSApO8yE8f/rhKcu58NOaH7IYsV7lygejwv71S +qPMOBaBjJM+B36VlZeFfsJe+iaRFwkI/2yiCnlclQwQ/KdbhtrMc6r+NjSYzHZA Lg0uNBcY10fbofrb0iRFZ1QzvQ0QBvNdpQKayvt+X0I9b04q0n1kroLK0pQiSTpz iLd7DF8WfIm+UqByrZcRIn9w78gKkcqDbIxyp9LFSPXx+ozzHIFaXaLTvtoeRQhk QcCvW8LZ+NBl8eBphCFJ9zle47NEzhn1iAwsVlHk6Df7/Cpt4Tvq/Yp6ANys2pxs 0oYUfbU3EITtWZQn7NjML12c79uh1YHbAgus3MOXA+/4b5/DSZ8KIT4EoIJpiXUz uzb6jap5UjD862l6Yzv3JUpe0KfrV9m6WdKfyU39xVxTVdf33exfq5Q8jDHJ/Xde ZPXDgbxluIIwoMzQ2QxeL5M2NxS1j6VT9PHdYflBPte1Oz5L1GTfdekwovE7vnCn 63nY -----END CERTIFICATE-----"
   skip_cert_cn_check: false
-  # NEW: once connected to the broker, fade the status LEDs to white
+  # Once connected to the broker, fade the status LEDs to white
   on_connect:
     - script.execute: led_mqtt_connected
 
@@ -189,13 +225,13 @@ globals:
     restore_value: no
     initial_value: "false"
 
-  # NEW: true once the red boot sequence has finished
+  # true once the red boot sequence has finished
   - id: led_boot_done
     type: bool
     restore_value: no
     initial_value: "false"
 
-  # NEW: active Zigbee link mode, survives reboots: "client", "server" or "none"
+  # active Zigbee link mode, survives reboots: "client", "server" or "none"
   - id: zigbee_mode
     type: std::string
     restore_value: true
@@ -210,6 +246,9 @@ script:
   - id: apply_mqtt_settings
     mode: restart
     then:
+      # NEW: let the boot load (LED sequence, UART bridge, WiFi/IPv6 setup) settle
+      # before MQTT connects and publishes the discovery burst.
+      - delay: 5s
       - lambda: |-
           static bool applied = false;
           if (applied) {
@@ -373,7 +412,7 @@ script:
           id(zigbee_uart).set_port(static_cast<uint16_t>(port_value));
           ESP_LOGI("zigbee_config", "Zigbee TCP target set to %s:%u", host.c_str(), (unsigned) port_value);
 
-  # NEW: Applies the current Zigbee Server / Port values and forces a reconnect.
+  # Applies the current Zigbee Server / Port values and forces a reconnect.
   # Unlike apply_zigbee_settings, this runs every time it is called.
   # NOTE: assumes uart_tcp_client exposes disconnect() (see ASSUMED below).
   - id: zigbee_connect_now
@@ -429,7 +468,7 @@ script:
           auto drop_connection = &ZigbeeAccess::disconnect_;
           (id(zigbee_uart).*drop_connection)();
 
-  # NEW: Switches the Zigbee link between Client, Server and none.
+  # Switches the Zigbee link between Client, Server and none.
   # mode: "client" | "server" | "none". Only one side is ever active.
   - id: zigbee_apply_mode
     mode: restart
@@ -532,10 +571,18 @@ script:
             # Applies the Zigbee Server / Port values and connects
             - script.execute: zigbee_connect_now
 
-  # NEW: Applies the saved Zigbee mode once per boot (after WiFi is up)
+  # Applies the saved Zigbee mode once per boot (after WiFi is up).
+  # CHANGED: waits until MQTT is connected (so the discovery burst is not competing
+  # with the Zigbee TCP link), then 10 s more. If MQTT never connects (broker down,
+  # wrong settings) it starts anyway after 30 s, so Zigbee never depends on MQTT.
   - id: zigbee_apply_mode_boot
     mode: restart
     then:
+      - wait_until:
+          condition:
+            mqtt.connected:
+          timeout: 30s
+      - delay: 10s
       - if:
           condition:
             lambda: |-
@@ -550,7 +597,7 @@ script:
                 id: zigbee_apply_mode
                 mode: !lambda 'return id(zigbee_mode);'
 
-  # NEW: Boot sequence. LED 1..4 light up one by one in red at 25% (600 ms apart).
+  # Boot sequence. LED 1..4 light up one by one in red at 25% (600 ms apart).
   # Skipped if the LED Strip light is on (e.g. an effect is running).
   - id: led_boot_sequence
     mode: single
@@ -594,7 +641,7 @@ script:
       - lambda: |-
           id(led_boot_done) = true;
 
-  # NEW: MQTT connected. All 4 LEDs fade from red to white at 25% over 2 s.
+  # MQTT connected. All 4 LEDs fade from red to white at 25% over 2 s.
   # Waits for the boot sequence to finish, and is skipped while an effect runs.
   - id: led_mqtt_connected
     mode: restart
@@ -822,7 +869,7 @@ button:
                 format: "WiFi reset armed. Press the button again within 10 seconds to confirm."
             - script.execute: wifi_reset_arm_timer
 
-  # NEW: Applies the Zigbee settings for the active mode (see zigbee_apply_mode)
+  # Applies the Zigbee settings for the active mode (see zigbee_apply_mode)
   - platform: template
     name: "Zigbee Connect"
     id: zigbee_connect_button
@@ -1508,7 +1555,7 @@ select:
       sorting_weight: 80
 
 switch:
-  # NEW: Zigbee link mode. Only one of these two can be on; turning one on turns the
+  # Zigbee link mode. Only one of these two can be on; turning one on turns the
   # other off. Both off = Zigbee link closed. The state is restored from the
   # zigbee_mode global after WiFi connects, hence restore_mode: DISABLED.
   - platform: template
