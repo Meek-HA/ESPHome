@@ -9,6 +9,8 @@ external_components:
       path: components
     components: [mqtt]
 
+# ADDED: native API enabled, it is required by bluetooth_proxy
+# (Home Assistant receives the Bluetooth data through it)
 api:
   reboot_timeout: 0s
     
@@ -23,8 +25,8 @@ wifi:
     then:
       - script.execute: apply_mqtt_settings
   ap:
-    ssid: Meek MT3 Fallback Hotspot
-    password: "[www.meek-io.com](https://www.meek-io.com)"
+    ssid: Meek_MT3
+    password: www.meek-io.com
 captive_portal:
   
 esphome:
@@ -109,6 +111,29 @@ esp32:
 
 logger:
 
+# ADDED: LD2410 radar on UART2 (GPIO17 = ESP TX -> radar RX, GPIO16 = ESP RX <- radar TX)
+uart:
+  id: ld2410_uart
+  tx_pin: GPIO17
+  rx_pin: GPIO16
+  baud_rate: 256000
+  parity: NONE
+  stop_bits: 1
+
+ld2410:
+  id: ld2410_radar
+  uart_id: ld2410_uart
+
+# ADDED: Bluetooth proxy. continuous: false means NO scanning at boot;
+# scanning is started/stopped by the "Bluetooth Proxy" switch below.
+esp32_ble_tracker:
+  id: ble_tracker
+  scan_parameters:
+    continuous: false
+
+bluetooth_proxy:
+  active: true
+
 debug:
   update_interval: 30s
 
@@ -148,6 +173,14 @@ web_server:
     - id: speaker_group
       name: "Speaker"
       sorting_weight: 50
+    # ADDED: LD2410 radar group
+    - id: radar_group
+      name: "Presence Radar"
+      sorting_weight: 35
+    # ADDED: Bluetooth proxy group
+    - id: bluetooth_group
+      name: "Bluetooth"
+      sorting_weight: 55
 
 mqtt:
   id: mqtt_client
@@ -740,6 +773,21 @@ button:
           ESP_LOGI("reset_settings", "Rebooting to apply factory defaults...");
           esp_restart();
 
+  # ADDED: LD2410 radar buttons
+  - platform: ld2410
+    restart:
+      name: "Radar Restart"
+      entity_category: ""
+      web_server:
+        sorting_group_id: radar_group
+        sorting_weight: 150
+    factory_reset:
+      name: "Radar Factory Reset"
+      entity_category: ""
+      web_server:
+        sorting_group_id: radar_group
+        sorting_weight: 160
+
 text_sensor:
   - platform: template
     name: "MQTT Status"
@@ -898,6 +946,15 @@ text_sensor:
                (unsigned long)minutes, (unsigned long)seconds);
       return {std::string(buf)};
 
+  # ADDED: LD2410 radar firmware version
+  - platform: ld2410
+    version:
+      name: "Radar Firmware Version"
+      entity_category: ""
+      web_server:
+        sorting_group_id: radar_group
+        sorting_weight: 170
+
 sensor:
   - platform: wifi_signal
     name: "WiFi Signal (dBm)"
@@ -940,6 +997,39 @@ sensor:
       web_server:
         sorting_group_id: device_details_group
         sorting_weight: 50
+
+  # ADDED: LD2410 radar sensors
+  - platform: ld2410
+    moving_distance:
+      name: "Radar Moving Distance"
+      entity_category: ""
+      web_server:
+        sorting_group_id: radar_group
+        sorting_weight: 40
+    still_distance:
+      name: "Radar Still Distance"
+      entity_category: ""
+      web_server:
+        sorting_group_id: radar_group
+        sorting_weight: 50
+    moving_energy:
+      name: "Radar Moving Energy"
+      entity_category: ""
+      web_server:
+        sorting_group_id: radar_group
+        sorting_weight: 60
+    still_energy:
+      name: "Radar Still Energy"
+      entity_category: ""
+      web_server:
+        sorting_group_id: radar_group
+        sorting_weight: 70
+    detection_distance:
+      name: "Radar Detection Distance"
+      entity_category: ""
+      web_server:
+        sorting_group_id: radar_group
+        sorting_weight: 80
 
 light:
   - platform: esp32_rmt_led_strip
@@ -1179,6 +1269,27 @@ number:
       - lambda: |-
           id(rtttl_buzzer).set_gain(x / 100.0f);
 
+  # ADDED: LD2410 radar numbers
+  - platform: ld2410
+    timeout:
+      name: "Radar Presence Timeout"
+      entity_category: ""
+      web_server:
+        sorting_group_id: radar_group
+        sorting_weight: 110
+    max_move_distance_gate:
+      name: "Radar Max Move Gate"
+      entity_category: ""
+      web_server:
+        sorting_group_id: radar_group
+        sorting_weight: 120
+    max_still_distance_gate:
+      name: "Radar Max Still Gate"
+      entity_category: ""
+      web_server:
+        sorting_group_id: radar_group
+        sorting_weight: 130
+
 select:
   - platform: template
     name: "MQTT Security"
@@ -1330,6 +1441,15 @@ select:
                   effect: "Fireworks"
                   brightness: 100%
 
+  # ADDED: LD2410 radar select
+  - platform: ld2410
+    distance_resolution:
+      name: "Radar Distance Resolution"
+      entity_category: ""
+      web_server:
+        sorting_group_id: radar_group
+        sorting_weight: 140
+
 switch:
   - platform: gpio
     id: touch_ics_output
@@ -1396,6 +1516,38 @@ switch:
       sorting_group_id: sensors_control_group
       sorting_weight: 70
 
+  # ADDED: Bluetooth proxy on/off (default Off)
+  - platform: template
+    name: "Bluetooth Proxy"
+    id: bluetooth_proxy_switch
+    icon: mdi:bluetooth
+    entity_category: ""
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    turn_on_action:
+      - esp32_ble_tracker.start_scan:
+          continuous: true
+    turn_off_action:
+      - esp32_ble_tracker.stop_scan:
+    web_server:
+      sorting_group_id: bluetooth_group
+      sorting_weight: 10
+
+  # ADDED: LD2410 radar switches
+  - platform: ld2410
+    engineering_mode:
+      name: "Radar Engineering Mode"
+      entity_category: ""
+      web_server:
+        sorting_group_id: radar_group
+        sorting_weight: 90
+    bluetooth:
+      name: "Radar Bluetooth"
+      entity_category: ""
+      web_server:
+        sorting_group_id: radar_group
+        sorting_weight: 100
+
 binary_sensor:
   - platform: gpio
     id: button_1
@@ -1460,3 +1612,25 @@ binary_sensor:
     web_server:
       sorting_group_id: sensors_control_group
       sorting_weight: 40
+
+  # ADDED: LD2410 radar binary sensors
+  - platform: ld2410
+    has_target:
+      name: "Radar Presence"
+      id: radar_has_target
+      entity_category: ""
+      web_server:
+        sorting_group_id: radar_group
+        sorting_weight: 10
+    has_moving_target:
+      name: "Radar Moving Target"
+      entity_category: ""
+      web_server:
+        sorting_group_id: radar_group
+        sorting_weight: 20
+    has_still_target:
+      name: "Radar Still Target"
+      entity_category: ""
+      web_server:
+        sorting_group_id: radar_group
+        sorting_weight: 30
