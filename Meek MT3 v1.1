@@ -396,6 +396,7 @@ text:
   - platform: template
     name: "MQTT Broker"
     id: mqtt_broker_text
+    discovery: false   # hidden from Home Assistant, still in the web UI
     entity_category: ""
     mode: text
     optimistic: true
@@ -410,6 +411,7 @@ text:
   - platform: template
     name: "MQTT Port"
     id: mqtt_port_text
+    discovery: false   # hidden from Home Assistant, still in the web UI
     entity_category: ""
     mode: text
     optimistic: true
@@ -425,6 +427,7 @@ text:
   - platform: template
     name: "MQTT Username"
     id: mqtt_username_text
+    discovery: false   # hidden from Home Assistant, still in the web UI
     entity_category: ""
     mode: text
     optimistic: true
@@ -439,6 +442,7 @@ text:
   - platform: template
     name: "MQTT Password"
     id: mqtt_password_text
+    discovery: false   # hidden from Home Assistant, still in the web UI
     entity_category: ""
     mode: text
     optimistic: true
@@ -482,6 +486,7 @@ button:
   - platform: template
     name: "Save and Reboot"
     id: save_and_reboot_button
+    discovery: false   # hidden from Home Assistant, still in the web UI
     icon: mdi:content-save-alert
     entity_category: ""
     on_press:
@@ -516,6 +521,7 @@ button:
   - platform: template
     name: "Reset WiFi Settings"
     id: reset_wifi_settings_button
+    discovery: false   # hidden from Home Assistant, still in the web UI
     icon: mdi:wifi-cog
     entity_category: ""
     web_server:
@@ -645,6 +651,7 @@ button:
   - platform: template
     name: "Reset Settings"
     id: reset_settings_button
+    discovery: false   # hidden from Home Assistant, still in the web UI
     icon: mdi:restore
     entity_category: ""
     web_server:
@@ -1209,6 +1216,7 @@ select:
   - platform: template
     name: "MQTT Security"
     id: mqtt_security_select
+    discovery: false   # hidden from Home Assistant, still in the web UI
     entity_category: ""
     icon: mdi:lock-check
     optimistic: true
