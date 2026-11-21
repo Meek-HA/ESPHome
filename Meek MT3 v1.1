@@ -113,6 +113,11 @@ esphome:
         - script.execute:
             id: sync_relays
             which: 0
+        - lambda: |-
+            // An old saved empty melody would otherwise stay unpublished ("unknown" in HA).
+            if (id(rtttl_melody_text).state.empty()) {
+              id(rtttl_melody_text).publish_state(" ");
+            }
         - component.update: esphome_version_text
         - component.update: firmware_build_date_text
         - component.update: device_id_text
@@ -491,9 +496,11 @@ text:
     id: rtttl_melody_text
     entity_category: ""
     mode: text
-    optimistic: true
+    # Not optimistic: set_action publishes the state itself (see below).
     restore_value: true
-    initial_value: ""
+    # A single space = "blank". An empty string is never published, which makes
+    # Home Assistant show "unknown".
+    initial_value: " "
     max_length: 255
     icon: mdi:music-note-plus
     web_server:
@@ -501,9 +508,12 @@ text:
       sorting_weight: 60
     set_action:
       - rtttl.stop
+      - lambda: |-
+          // Publish a single space instead of an empty string (see initial_value).
+          id(rtttl_melody_text).publish_state(x.empty() ? std::string(" ") : x);
       - if:
           condition:
-            lambda: 'return !x.empty();'
+            lambda: 'return x.find_first_not_of(" \t") != std::string::npos;'
           then:
             - rtttl.play: !lambda 'return x;'
 
@@ -623,7 +633,7 @@ button:
                   {"Tetris", "Tetris:d=4,o=5,b=160:e6,8b,8c6,8d6,16e6,16d6,8c6,8b,a,8a,8c6,e6,8d6,8c6,b,8b,8c6,d6,e6,c6,a,2a,8p,d6,8f6,a6,8g6,8f6,e6,8c6,e6,8d6,8c6,b,8b,8c6,d6,e6,c6,a,a"},
                   {"Pacman", "Pacman:d=4,o=5,b=112:32b,32p,32b6,32p,32f#6,32p,32d#6,32p,32b6,32f#6,16p,16d#6,16p,32c6,32p,32c7,32p,32g6,32p,32e6,32p,32c7,32g6,16p,16e6,16p,32b,32p,32b6,32p,32f#6,32p,32d#6,32p,32b6,32f#6,16p,16d#6,16p,32d#6,32e6,32f6,32p,32f6,32f#6,32g6,32p,32g6,32g#6,32a6,32p,32b.6"},
                   {"Indiana Jones", "Indiana Jones:d=4,o=5,b=250:e,8p,8f,8g,8p,1c6,8p.,d,8p,8e,1f,p.,g,8p,8a,8b,8p,1f6,p,a,8p,8b,2c6,2d6,2e6,e,8p,8f,8g,8p,1c6,p,d6,8p,8e6,1f.6,g,8p,8g,e.6,8p,d6,8p,8g,e.6,8p,d6,8p,8g,f.6,8p,e6,8p,8d6,2c6"},
-                  {"Mission Impossible", "MissionImpossible:d=4,o=5,b=180:16d5,16d#5,16d5,16d#5,16d5,16d#5,16d5,16d#5,16d5,16d#5,16d5,16d#5,16d5,16d#5,16d5,16d#5,16a#4,16c5,16d5,8d5,8d5,16a#4,16c5,16d5,16d#5,16f5,16d#5,16d5,16c5,16a#4,8a#4,8a#4,16a#4,16c5,16d5,8d5,8d5,16a#4,16c5,16d5,16d#5,16f5,16d#5,16d5,16c5,16a#4"},
+                  {"Mission Impossible", "MissionImpossible:d=4,o=6,b=100:32d,32d#,32d,32d#,32d,32d#,32d,32d#,32d,32d,32d#,32e,32f,32f#,32g,16g,8p,16g,8p,16a#,16p,16c7,16p,16g,8p,16g,8p,16f,16p,16f#,16p,16g,8p,16g,8p,16a#,16p,16c7,16p,16g,8p,16g,8p,16f,16p,16f#,16p,16a#,16g,2d,32p,16a#,16g,2c#,32p,16a#,16g,2c,16p,16a#5,16c"},
                   {"Harry Potter", "HarryPotter:d=4,o=5,b=125:8b,8e6,8g6,8f#6,8e6,8b6,a6,8f#6,8e6,8g6,8f#6,8d#6,8f6,b,8b,8e6,8g6,8f#6,8e6,8b6,2d7,8c#7,8c7,8g#6,8c7,8b6,8a#6,8a6,8g#6,8a6,8e6"},
                   {"Jingle Bells", "JingleBells:d=4,o=5,b=170:b,b,b,8p,b,b,b,8p,b,d6,g.,8a,2b,c6,c6,c6.,8c6,c6,b,b,8b,8b,b,a,a,b,2a,2d6"},
                   {"The Simpsons", "TheSimpsons:d=4,o=5,b=160:c.6,e6,f#6,8a6,g.6,e6,c6,8a,8f#,8f#,8f#,2g,8p,8p,8f#,8f#,8f#,8g,a#.,8c6,8c6,8c6,c6"},
@@ -654,7 +664,7 @@ button:
           then:
             - if:
                 condition:
-                  lambda: 'return !id(rtttl_melody_text).state.empty();'
+                  lambda: 'return id(rtttl_melody_text).state.find_first_not_of(" \t") != std::string::npos;'
                 then:
                   - rtttl.play: !lambda 'return id(rtttl_melody_text).state;'
                 else:
