@@ -1,6 +1,45 @@
 # Board: Generic ESP32 Board (Generic)
 # Definition: definitions/boards/generic-esp32/manifest.yaml
 
+# CHANGED: the MQTT CA certificate now lives in ONE place (this substitution).
+# It is used by `mqtt: certificate_authority` below and by the
+# apply_mqtt_settings script (via a C++ raw string literal).
+substitutions:
+  mqtt_ca_cert: |
+    -----BEGIN CERTIFICATE-----
+    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
+    63nY
+    -----END CERTIFICATE-----
+
 # Loads the patched MQTT component from /config/components/mqtt
 # (an empty CA certificate forces plain TCP instead of TLS)
 external_components:
@@ -9,11 +48,6 @@ external_components:
       path: components
     components: [mqtt]
 
-# ADDED: native API enabled, it is required by bluetooth_proxy
-# (Home Assistant receives the Bluetooth data through it)
-api:
-  reboot_timeout: 0s
-    
 ota:
   - platform: esphome
     
@@ -24,6 +58,7 @@ wifi:
   on_connect:
     then:
       - script.execute: apply_mqtt_settings
+      - component.update: ip_ipv4
   ap:
     ssid: Meek_MT3
     password: www.meek-io.com
@@ -35,73 +70,53 @@ esphome:
   name_add_mac_suffix: true
 
   on_boot:
-    priority: 700
-    then:
-      - lambda: |-
-          id(buttons_locked) = true;
+    - priority: 700
+      then:
+        - lambda: |-
+            id(buttons_locked) = true;
 
-      - switch.turn_off: touch_ics_output
-      - delay: 5s
-      - switch.turn_on: touch_ics_output
-      - delay: 1s
+        - switch.turn_off: touch_ics_output
+        - delay: 5s
+        - switch.turn_on: touch_ics_output
+        - delay: 1s
 
-      - lambda: |-
-          id(buttons_locked) = false;
-          id(buzzer_boot_lockout) = false;
+        - lambda: |-
+            id(buttons_locked) = false;
+            id(buzzer_boot_lockout) = false;
 
-      - if:
-          condition:
-            lambda: 'return !id(first_boot_completed);'
-          then:
-            - light.turn_on:
-                id: led1_on
-                brightness: 40%
-                red: 100%
-                green: 0%
-                blue: 100%
-            - light.turn_on:
-                id: led2_on
-                brightness: 40%
-                red: 100%
-                green: 0%
-                blue: 100%
-            - light.turn_on:
-                id: led3_on
-                brightness: 40%
-                red: 100%
-                green: 0%
-                blue: 100%
-            - light.turn_on:
-                id: led1_off
-                brightness: 30%
-                red: 100%
-                green: 99.6%
-                blue: 98%
-            - light.turn_on:
-                id: led2_off
-                brightness: 30%
-                red: 100%
-                green: 99.6%
-                blue: 98%
-            - light.turn_on:
-                id: led3_off
-                brightness: 30%
-                red: 100%
-                green: 99.6%
-                blue: 98%
-            - lambda: |-
-                id(first_boot_completed) = true;
+        - if:
+            condition:
+              lambda: 'return !id(first_boot_completed);'
+            then:
+              - script.execute: apply_default_led_colors
+              - lambda: |-
+                  id(first_boot_completed) = true;
 
-      - script.execute: sync_leds_to_outputs
+        - script.execute:
+            id: sync_leds_to_outputs
+            which: 0
 
-      # Restore masked password display after components are ready
-      - delay: 2s
-      - lambda: |-
-          if (!id(mqtt_password_real).empty()) {
-            id(mqtt_password_text).publish_state("********");
-          } else {
-            id(mqtt_password_text).publish_state("");
-          }
+        # Restore masked password display after components are ready
+        - delay: 2s
+        - lambda: |-
+            if (!id(mqtt_password_real).empty()) {
+              id(mqtt_password_text).publish_state("********");
+            } else {
+              id(mqtt_password_text).publish_state("");
+            }
+
+    # Static / event-driven values are published ONCE here (after all components
+    # are set up). ESPHome re-sends the current state of every entity to MQTT on
+    # each (re)connect by itself, so they never need to be polled.
+    - priority: -100
+      then:
+        - component.update: esphome_version_text
+        - component.update: firmware_build_date_text
+        - component.update: device_id_text
+        - component.update: wifi_reset_status_text
+        - text_sensor.template.publish:
+            id: mqtt_status_text
+            state: "Disconnected"
 
 esp32:
   board: esp32dev
@@ -124,24 +139,11 @@ ld2410:
   id: ld2410_radar
   uart_id: ld2410_uart
 
-# ADDED: Bluetooth proxy. continuous: false means NO scanning at boot;
-# scanning is started/stopped by the "Bluetooth Proxy" switch below.
-esp32_ble_tracker:
-  id: ble_tracker
-  scan_parameters:
-    continuous: false
-
-bluetooth_proxy:
-  active: true
-
 debug:
   update_interval: 30s
 
 preferences:
   flash_write_interval: 1min
-
-network:
-  enable_ipv6: true
 
 time:
   - platform: sntp
@@ -177,10 +179,6 @@ web_server:
     - id: radar_group
       name: "Presence Radar"
       sorting_weight: 35
-    # ADDED: Bluetooth proxy group
-    - id: bluetooth_group
-      name: "Bluetooth"
-      sorting_weight: 55
 
 mqtt:
   id: mqtt_client
@@ -194,9 +192,18 @@ mqtt:
   # (e.g. ESPbuttonstop_speaker), which collides with other Meek devices in
   # Home Assistant. "mac" puts this device's MAC address in the unique ID.
   discovery_unique_id_generator: mac
+  # MQTT Status is event-driven instead of polled every 5 s.
+  on_connect:
+    - text_sensor.template.publish:
+        id: mqtt_status_text
+        state: "Connected"
+  on_disconnect:
+    - text_sensor.template.publish:
+        id: mqtt_status_text
+        state: "Disconnected"
   # Kept so USE_MQTT_TLS is defined and the cert setters get generated.
   # The script below clears/overrides it at runtime based on the security select.
-  certificate_authority: "-----BEGIN CERTIFICATE----- MIIFnzCCA4egAwIBAgIUWU6ZQJOY1WCmKGIqILKpyVMZFccwDQYJKoZIhvcNAQEL BQAwXzELMAkGA1UEBhMCTkwxEDAOBgNVBAgMB1plZWxhbmQxEzARBgNVBAcMCk1p ZGRlbGJ1cmcxDTALBgNVBAoMBE1lZWsxGjAYBgNVBAMMEU1lZWsgTVFUVCBSb290 IENBMB4XDTI2MTAxMTEwMTIzMFoXDTM2MTAwODEwMTIzMFowXzELMAkGA1UEBhMC TkwxEDAOBgNVBAgMB1plZWxhbmQxEzARBgNVBAcMCk1pZGRlbGJ1cmcxDTALBgNV BAoMBE1lZWsxGjAYBgNVBAMMEU1lZWsgTVFUVCBSb290IENBMIICIjANBgkqhkiG 9w0BAQEFAAOCAg8AMIICCgKCAgEAoad7C1xkCGIplaWH2TpCUKoRFiqJGHMxh4Kb gHuLzROwDCyqcUPcToQPUsfy9soSY7/pdTgH5lsbG6hd1JHSeRV0d2yu8oDvstpk rkgNECSvX2uw3oP5cJvaDGmUTcu9CT0FlBfz9tigO1yIndSeBDxuFh661dNtmV6d IVOGZ2dVl72F8W+tTe39qVrufQfafjhL72OsOki9AfRKqGCnb5wegHIAZf3zxH0g aus8guvbRLrPQhlSRyIJ6QmdKcMwh0Y+h23/G2utE4dqxzEI4Pv6nzeEW0ceUYmn DNzx24V/QvfEoWsfnjsvBCeUCPC5oiPWqo57zlcZ6eqS1tNB8K2MFqU3HT9yCS04 3GsXo6ZGMWfACYTZYiQyzqAPv+LncGIIQZ4eNgGCtigMCM+VsAWxGCKzz3PIp4Mo 31H7etUNYlSQy9oE1XFlaOMxE/irXS5i7/YoRR15lk9Gs0pPlWs+BqYMsBJUc1wc oOTx2kteDsD5BMVkncm/dB+wE2xrY1XiZMCMsfu39b/FAWlvjUiIqzWNBxkMyBRg kh/be6FOHPrNeNw3TXj86icHK8XWRqyyDQA03GEQLyvvrXfxmu3QTIA1xxuczHpr r4EBpoyACuNDbM+HX1eIGvtyijni2sFxEYH/eIZ1MbQh6m2mfya0D+76OF0+ARg4 1yS+hksCAwEAAaNTMFEwHQYDVR0OBBYEFEKGqish34vmEFBVF4DIgm1SqY+4MB8G A1UdIwQYMBaAFEKGqish34vmEFBVF4DIgm1SqY+4MA8GA1UdEwEB/wQFMAMBAf8w DQYJKoZIhvcNAQELBQADggIBAJg+secHLCSDG/WG1zBcABC/SfFgpJTHTztHh1C3 S9U1CUi65Xddy9J8LieFanuFSVs8TLOYWWfdsNcOyTDFJAX9yszxsLwPih0cVtmK LNWlfad2OegEuDJnUPT/WaP5KM2WO3sgw2XWnjeJo+AJz08AV/IkylqRp1rdG0vK FBn60w4P60nTOf/FvPcZYU8JDgZSApO8yE8f/rhKcu58NOaH7IYsV7lygejwv71S +qPMOBaBjJM+B36VlZeFfsJe+iaRFwkI/2yiCnlclQwQ/KdbhtrMc6r+NjSYzHZA Lg0uNBcY10fbofrb0iRFZ1QzvQ0QBvNdpQKayvt+X0I9b04q0n1kroLK0pQiSTpz iLd7DF8WfIm+UqByrZcRIn9w78gKkcqDbIxyp9LFSPXx+ozzHIFaXaLTvtoeRQhk QcCvW8LZ+NBl8eBphCFJ9zle47NEzhn1iAwsVlHk6Df7/Cpt4Tvq/Yp6ANys2pxs 0oYUfbU3EITtWZQn7NjML12c79uh1YHbAgus3MOXA+/4b5/DSZ8KIT4EoIJpiXUz uzb6jap5UjD862l6Yzv3JUpe0KfrV9m6WdKfyU39xVxTVdf33exfq5Q8jDHJ/Xde ZPXDgbxluIIwoMzQ2QxeL5M2NxS1j6VT9PHdYflBPte1Oz5L1GTfdekwovE7vnCn 63nY -----END CERTIFICATE-----"
+  certificate_authority: ${mqtt_ca_cert}
   skip_cert_cn_check: false
 
 globals:
@@ -277,42 +284,28 @@ script:
           id(mqtt_client).set_password(id(mqtt_password_real));
 
           if (security == "MQTTS (Secure/TLS)") {
-            static const char *MQTT_CA_CERT =
-              "-----BEGIN CERTIFICATE-----\n"
-              "MIIFnzCCA4egAwIBAgIUWU6ZQJOY1WCmKGIqILKpyVMZFccwDQYJKoZIhvcNAQEL\n"
-              "BQAwXzELMAkGA1UEBhMCTkwxEDAOBgNVBAgMB1plZWxhbmQxEzARBgNVBAcMCk1p\n"
-              "ZGRlbGJ1cmcxDTALBgNVBAoMBE1lZWsxGjAYBgNVBAMMEU1lZWsgTVFUVCBSb290\n"
-              "IENBMB4XDTI2MTAxMTEwMTIzMFoXDTM2MTAwODEwMTIzMFowXzELMAkGA1UEBhMC\n"
-              "TkwxEDAOBgNVBAgMB1plZWxhbmQxEzARBgNVBAcMCk1pZGRlbGJ1cmcxDTALBgNV\n"
-              "BAoMBE1lZWsxGjAYBgNVBAMMEU1lZWsgTVFUVCBSb290IENBMIICIjANBgkqhkiG\n"
-              "9w0BAQEFAAOCAg8AMIICCgKCAgEAoad7C1xkCGIplaWH2TpCUKoRFiqJGHMxh4Kb\n"
-              "gHuLzROwDCyqcUPcToQPUsfy9soSY7/pdTgH5lsbG6hd1JHSeRV0d2yu8oDvstpk\n"
-              "rkgNECSvX2uw3oP5cJvaDGmUTcu9CT0FlBfz9tigO1yIndSeBDxuFh661dNtmV6d\n"
-              "IVOGZ2dVl72F8W+tTe39qVrufQfafjhL72OsOki9AfRKqGCnb5wegHIAZf3zxH0g\n"
-              "aus8guvbRLrPQhlSRyIJ6QmdKcMwh0Y+h23/G2utE4dqxzEI4Pv6nzeEW0ceUYmn\n"
-              "DNzx24V/QvfEoWsfnjsvBCeUCPC5oiPWqo57zlcZ6eqS1tNB8K2MFqU3HT9yCS04\n"
-              "3GsXo6ZGMWfACYTZYiQyzqAPv+LncGIIQZ4eNgGCtigMCM+VsAWxGCKzz3PIp4Mo\n"
-              "31H7etUNYlSQy9oE1XFlaOMxE/irXS5i7/YoRR15lk9Gs0pPlWs+BqYMsBJUc1wc\n"
-              "oOTx2kteDsD5BMVkncm/dB+wE2xrY1XiZMCMsfu39b/FAWlvjUiIqzWNBxkMyBRg\n"
-              "kh/be6FOHPrNeNw3TXj86icHK8XWRqyyDQA03GEQLyvvrXfxmu3QTIA1xxuczHpr\n"
-              "r4EBpoyACuNDbM+HX1eIGvtyijni2sFxEYH/eIZ1MbQh6m2mfya0D+76OF0+ARg4\n"
-              "1yS+hksCAwEAAaNTMFEwHQYDVR0OBBYEFEKGqish34vmEFBVF4DIgm1SqY+4MB8G\n"
-              "A1UdIwQYMBaAFEKGqish34vmEFBVF4DIgm1SqY+4MA8GA1UdEwEB/wQFMAMBAf8w\n"
-              "DQYJKoZIhvcNAQELBQADggIBAJg+secHLCSDG/WG1zBcABC/SfFgpJTHTztHh1C3\n"
-              "S9U1CUi65Xddy9J8LieFanuFSVs8TLOYWWfdsNcOyTDFJAX9yszxsLwPih0cVtmK\n"
-              "LNWlfad2OegEuDJnUPT/WaP5KM2WO3sgw2XWnjeJo+AJz08AV/IkylqRp1rdG0vK\n"
-              "FBn60w4P60nTOf/FvPcZYU8JDgZSApO8yE8f/rhKcu58NOaH7IYsV7lygejwv71S\n"
-              "+qPMOBaBjJM+B36VlZeFfsJe+iaRFwkI/2yiCnlclQwQ/KdbhtrMc6r+NjSYzHZA\n"
-              "Lg0uNBcY10fbofrb0iRFZ1QzvQ0QBvNdpQKayvt+X0I9b04q0n1kroLK0pQiSTpz\n"
-              "iLd7DF8WfIm+UqByrZcRIn9w78gKkcqDbIxyp9LFSPXx+ozzHIFaXaLTvtoeRQhk\n"
-              "QcCvW8LZ+NBl8eBphCFJ9zle47NEzhn1iAwsVlHk6Df7/Cpt4Tvq/Yp6ANys2pxs\n"
-              "0oYUfbU3EITtWZQn7NjML12c79uh1YHbAgus3MOXA+/4b5/DSZ8KIT4EoIJpiXUz\n"
-              "uzb6jap5UjD862l6Yzv3JUpe0KfrV9m6WdKfyU39xVxTVdf33exfq5Q8jDHJ/Xde\n"
-              "ZPXDgbxluIIwoMzQ2QxeL5M2NxS1j6VT9PHdYflBPte1Oz5L1GTfdekwovE7vnCn\n"
-              "63nY\n"
-              "-----END CERTIFICATE-----\n";
+            // Same certificate as in `mqtt: certificate_authority`, from the
+            // `mqtt_ca_cert` substitution. ESPHome indents every line of a
+            // lambda, which would put spaces inside the PEM body (mbedTLS error
+            // -0x112C), so leading whitespace is stripped from each line here.
+            // Static: the MQTT client keeps the pointer, so it must stay alive.
+            static std::string MQTT_CA_CERT;
+            if (MQTT_CA_CERT.empty()) {
+              const char *raw = R"CERT(${mqtt_ca_cert})CERT";
+              bool at_line_start = true;
+              for (const char *c = raw; *c != '\0'; c++) {
+                if (*c == '\n') {
+                  at_line_start = true;
+                } else if (at_line_start && (*c == ' ' || *c == '\t' || *c == '\r')) {
+                  continue;
+                } else {
+                  at_line_start = false;
+                }
+                MQTT_CA_CERT += *c;
+              }
+            }
 
-            id(mqtt_client).set_ca_certificate(MQTT_CA_CERT);
+            id(mqtt_client).set_ca_certificate(MQTT_CA_CERT.c_str());
             id(mqtt_client).set_skip_cert_cn_check(false);
             ESP_LOGI("mqtt_config", "MQTTS enabled: TLS will be used.");
           } else {
@@ -366,30 +359,38 @@ script:
       - lambda: |-
           id(touch_freeze) = false;
 
-  - id: sync_leds_to_outputs
+  # Sets the default colours/brightness of all six partition lights.
+  # Used on first boot and by "Reset Settings" (was duplicated in both).
+  - id: apply_default_led_colors
     mode: restart
     then:
-      - if:
-          condition:
-            switch.is_on: output_1
-          then:
-            - light.turn_on: led1_on
-          else:
-            - light.turn_on: led1_off
-      - if:
-          condition:
-            switch.is_on: output_2
-          then:
-            - light.turn_on: led2_on
-          else:
-            - light.turn_on: led2_off
-      - if:
-          condition:
-            switch.is_on: output_3
-          then:
-            - light.turn_on: led3_on
-          else:
-            - light.turn_on: led3_off
+      - lambda: |-
+          // "ON" lights: purple, 40 %
+          id(led1_on).turn_on().set_brightness(0.4f).set_red(1.0f).set_green(0.0f).set_blue(1.0f).perform();
+          id(led2_on).turn_on().set_brightness(0.4f).set_red(1.0f).set_green(0.0f).set_blue(1.0f).perform();
+          id(led3_on).turn_on().set_brightness(0.4f).set_red(1.0f).set_green(0.0f).set_blue(1.0f).perform();
+          // "OFF" lights: warm white, 30 %
+          id(led1_off).turn_on().set_brightness(0.3f).set_red(1.0f).set_green(0.996f).set_blue(0.98f).perform();
+          id(led2_off).turn_on().set_brightness(0.3f).set_red(1.0f).set_green(0.996f).set_blue(0.98f).perform();
+          id(led3_off).turn_on().set_brightness(0.3f).set_red(1.0f).set_green(0.996f).set_blue(0.98f).perform();
+
+  # Shows the "on" or "off" colour on the LED(s) according to the output state.
+  # which: 0 = all three LEDs, 1..3 = only that LED.
+  - id: sync_leds_to_outputs
+    mode: restart
+    parameters:
+      which: int
+    then:
+      - lambda: |-
+          if (which == 0 || which == 1) {
+            if (id(output_1).state) id(led1_on).turn_on().perform(); else id(led1_off).turn_on().perform();
+          }
+          if (which == 0 || which == 2) {
+            if (id(output_2).state) id(led2_on).turn_on().perform(); else id(led2_off).turn_on().perform();
+          }
+          if (which == 0 || which == 3) {
+            if (id(output_3).state) id(led3_on).turn_on().perform(); else id(led3_off).turn_on().perform();
+          }
 
 text:
   - platform: template
@@ -573,86 +574,38 @@ button:
           condition:
             lambda: 'return !id(buzzer_boot_lockout);'
           then:
-            - if:
-                condition:
-                  lambda: 'return id(buzzer_melody).current_option() == "Mario";'
-                then:
-                  - rtttl.play: "Mario:d=16,o=5,b=100:32p,e6,e6,p,e6,p,c6,e6,p,g6,8p,p,g,8p,32p,c6,8p,g,8p,e,8p,a,p,b,p,a#,a,p,g,e6,g6,a6,p,f6,g6,p,e6,p,c6,d6,b,4p,g6,f#6,f6,d#6,p,e6,p,g#,a,c6,p,a,c6,d6,8p,8d#6,p,d6,8p,8c6"
-            - if:
-                condition:
-                  lambda: 'return id(buzzer_melody).current_option() == "Nokia";'
-                then:
-                  - rtttl.play: "NokiaTune:d=16,o=5,b=64:32f6,32d#6,g,a,32d6,32c6,d#,f,32c6,32a#,d,f,8a#."
-            - if:
-                condition:
-                  lambda: 'return id(buzzer_melody).current_option() == "Alarm";'
-                then:
-                  - rtttl.play: "alarm:d=8,o=5,b=180:c,e,g,c6,g,e,c,e,g,c6,g,e"
-            - if:
-                condition:
-                  lambda: 'return id(buzzer_melody).current_option() == "Star Wars";'
-                then:
-                  - rtttl.play: "starwars:d=8,o=6,b=180:f5,f5,f5,2a#5.,2f.,d#,d,c,2a#.,4f.,d#,d,c,2a#.,4f.,d#,d,d#,2c,4p,f5,f5,f5,2a#5.,2f.,d#,d,c,2a#.,4f.,d#,d,c,2a#.,4f.,d#,d,d#,2c"
-            - if:
-                condition:
-                  lambda: 'return id(buzzer_melody).current_option() == "Imperial March";'
-                then:
-                  - rtttl.play: "Imperial March:o=5,d=4,b=120:e,e,e,8c,16p,16g,e,8c,16p,16g,e,p,b,b,b,8c6,16p,16g,d#,8c,16p,16g,e,8"
-            - if:
-                condition:
-                  lambda: 'return id(buzzer_melody).current_option() == "Happy Birthday";'
-                then:
-                  - rtttl.play: "Happy Birthday:o=5,d=4,b=125:8g.,16g,a,g,c6,2b,8g.,16g,a,g,d6,2c6,8g.,16g,g6,e6,c6,b,a,8f6.,16f6,e6,c6,d6,2c6,8g.,16g,a,g,c6,2b,8g.,16g,a,g,d6,2c6,8g.,16g,g6,e6,c6,b,a,8f6.,16f6,e6,c6,d6,2c6"
-            - if:
-                condition:
-                  lambda: 'return id(buzzer_melody).current_option() == "Rudolph the Red Nosed Reindeer";'
-                then:
-                  - rtttl.play: "Rudolph the Red Nosed Raindeer:o=5,d=8,b=250,b=250:g,4a,g,4e,4c6,4a,2g.,g,a,g,a,4g,4c6,2b.,4p,f,4g,f,4d,4b,4a,2g.,g,a,g,a,4g,4a,2e.,4p,g,4a,a,4e,4c6,4a,2g.,g,a,g,a,4g,4d6,2c6.,4p,4a,4a,4c6,4a,4g,4e,2g,4d,4e,4g,4a,4b,4b,2b,4c6,4c6,4b,4a,4g,4f,2d,g,4a,g,4e,4c6,4a,2g.,g,a,g,a,4g,4c6,2b.,4p,f,4g,f,4d,4b,4a,2g.,4g,4a,4g,4a,2g,2d6,1c6.."
-            - if:
-                condition:
-                  lambda: 'return id(buzzer_melody).current_option() == "Door Bell";'
-                then:
-                  - rtttl.play: "Door Bell:d=16,o=6,b=120:e,g,e,g,e,g,e,g,2p,e,g,e,g,e,g,e,g"
-            - if:
-                condition:
-                  lambda: 'return id(buzzer_melody).current_option() == "Office Ring";'
-                then:
-                  - rtttl.play: "Office Ring:d=32,o=6,b=160:f,g,f,g,f,g,f,g,f,g,f,g,f,g,f,g,4p,f,g,f,g,f,g,f,g,f,g,f,g,f,g,f,g"
-            - if:
-                condition:
-                  lambda: 'return id(buzzer_melody).current_option() == "Tetris";'
-                then:
-                  - rtttl.play: "Tetris:d=4,o=5,b=160:e6,8b,8c6,8d6,16e6,16d6,8c6,8b,a,8a,8c6,e6,8d6,8c6,b,8b,8c6,d6,e6,c6,a,2a,8p,d6,8f6,a6,8g6,8f6,e6,8c6,e6,8d6,8c6,b,8b,8c6,d6,e6,c6,a,a"
-            - if:
-                condition:
-                  lambda: 'return id(buzzer_melody).current_option() == "Pacman";'
-                then:
-                  - rtttl.play: "Pacman:d=4,o=5,b=112:32b,32p,32b6,32p,32f#6,32p,32d#6,32p,32b6,32f#6,16p,16d#6,16p,32c6,32p,32c7,32p,32g6,32p,32e6,32p,32c7,32g6,16p,16e6,16p,32b,32p,32b6,32p,32f#6,32p,32d#6,32p,32b6,32f#6,16p,16d#6,16p,32d#6,32e6,32f6,32p,32f6,32f#6,32g6,32p,32g6,32g#6,32a6,32p,32b.6"
-            - if:
-                condition:
-                  lambda: 'return id(buzzer_melody).current_option() == "Indiana Jones";'
-                then:
-                  - rtttl.play: "Indiana Jones:d=4,o=5,b=250:e,8p,8f,8g,8p,1c6,8p.,d,8p,8e,1f,p.,g,8p,8a,8b,8p,1f6,p,a,8p,8b,2c6,2d6,2e6,e,8p,8f,8g,8p,1c6,p,d6,8p,8e6,1f.6,g,8p,8g,e.6,8p,d6,8p,8g,e.6,8p,d6,8p,8g,f.6,8p,e6,8p,8d6,2c6"
-            - if:
-                condition:
-                  lambda: 'return id(buzzer_melody).current_option() == "Mission Impossible";'
-                then:
-                  - rtttl.play: "MissionImpossible:d=4,o=5,b=180:16d5,16d#5,16d5,16d#5,16d5,16d#5,16d5,16d#5,16d5,16d#5,16d5,16d#5,16d5,16d#5,16d5,16d#5,16a#4,16c5,16d5,8d5,8d5,16a#4,16c5,16d5,16d#5,16f5,16d#5,16d5,16c5,16a#4,8a#4,8a#4,16a#4,16c5,16d5,8d5,8d5,16a#4,16c5,16d5,16d#5,16f5,16d#5,16d5,16c5,16a#4"
-            - if:
-                condition:
-                  lambda: 'return id(buzzer_melody).current_option() == "Harry Potter";'
-                then:
-                  - rtttl.play: "HarryPotter:d=4,o=5,b=125:8b,8e6,8g6,8f#6,8e6,8b6,a6,8f#6,8e6,8g6,8f#6,8d#6,8f6,b,8b,8e6,8g6,8f#6,8e6,8b6,2d7,8c#7,8c7,8g#6,8c7,8b6,8a#6,8a6,8g#6,8a6,8e6"
-            - if:
-                condition:
-                  lambda: 'return id(buzzer_melody).current_option() == "Jingle Bells";'
-                then:
-                  - rtttl.play: "JingleBells:d=4,o=5,b=170:b,b,b,8p,b,b,b,8p,b,d6,g.,8a,2b,c6,c6,c6.,8c6,c6,b,b,8b,8b,b,a,a,b,2a,2d6"
-            - if:
-                condition:
-                  lambda: 'return id(buzzer_melody).current_option() == "The Simpsons";'
-                then:
-                  - rtttl.play: "TheSimpsons:d=4,o=5,b=160:c.6,e6,f#6,8a6,g.6,e6,c6,8a,8f#,8f#,8f#,2g,8p,8p,8f#,8f#,8f#,8g,a#.,8c6,8c6,8c6,c6"
+            # CHANGED: one lookup table instead of 16 if-blocks.
+            # The names must match the options of the "Speaker Melody" select.
+            - lambda: |-
+                static const struct { const char *name; const char *tune; } MELODIES[] = {
+                  {"Mario", "Mario:d=16,o=5,b=100:32p,e6,e6,p,e6,p,c6,e6,p,g6,8p,p,g,8p,32p,c6,8p,g,8p,e,8p,a,p,b,p,a#,a,p,g,e6,g6,a6,p,f6,g6,p,e6,p,c6,d6,b,4p,g6,f#6,f6,d#6,p,e6,p,g#,a,c6,p,a,c6,d6,8p,8d#6,p,d6,8p,8c6"},
+                  {"Nokia", "NokiaTune:d=16,o=5,b=64:32f6,32d#6,g,a,32d6,32c6,d#,f,32c6,32a#,d,f,8a#."},
+                  {"Alarm", "alarm:d=8,o=5,b=180:c,e,g,c6,g,e,c,e,g,c6,g,e"},
+                  {"Star Wars", "starwars:d=8,o=6,b=180:f5,f5,f5,2a#5.,2f.,d#,d,c,2a#.,4f.,d#,d,c,2a#.,4f.,d#,d,d#,2c,4p,f5,f5,f5,2a#5.,2f.,d#,d,c,2a#.,4f.,d#,d,c,2a#.,4f.,d#,d,d#,2c"},
+                  {"Imperial March", "Imperial March:o=5,d=4,b=120:e,e,e,8c,16p,16g,e,8c,16p,16g,e,p,b,b,b,8c6,16p,16g,d#,8c,16p,16g,e,8"},
+                  {"Happy Birthday", "Happy Birthday:o=5,d=4,b=125:8g.,16g,a,g,c6,2b,8g.,16g,a,g,d6,2c6,8g.,16g,g6,e6,c6,b,a,8f6.,16f6,e6,c6,d6,2c6,8g.,16g,a,g,c6,2b,8g.,16g,a,g,d6,2c6,8g.,16g,g6,e6,c6,b,a,8f6.,16f6,e6,c6,d6,2c6"},
+                  // FIXED: duplicate b=250 field removed, "Raindeer" typo corrected,
+                  // and the double-dotted final note (1c6..) reduced to a single dot.
+                  {"Rudolph the Red Nosed Reindeer", "Rudolph the Red Nosed Reindeer:o=5,d=8,b=250:g,4a,g,4e,4c6,4a,2g.,g,a,g,a,4g,4c6,2b.,4p,f,4g,f,4d,4b,4a,2g.,g,a,g,a,4g,4a,2e.,4p,g,4a,a,4e,4c6,4a,2g.,g,a,g,a,4g,4d6,2c6.,4p,4a,4a,4c6,4a,4g,4e,2g,4d,4e,4g,4a,4b,4b,2b,4c6,4c6,4b,4a,4g,4f,2d,g,4a,g,4e,4c6,4a,2g.,g,a,g,a,4g,4c6,2b.,4p,f,4g,f,4d,4b,4a,2g.,4g,4a,4g,4a,2g,2d6,1c6."},
+                  {"Door Bell", "Door Bell:d=16,o=6,b=120:e,g,e,g,e,g,e,g,2p,e,g,e,g,e,g,e,g"},
+                  {"Office Ring", "Office Ring:d=32,o=6,b=160:f,g,f,g,f,g,f,g,f,g,f,g,f,g,f,g,4p,f,g,f,g,f,g,f,g,f,g,f,g,f,g,f,g"},
+                  {"Tetris", "Tetris:d=4,o=5,b=160:e6,8b,8c6,8d6,16e6,16d6,8c6,8b,a,8a,8c6,e6,8d6,8c6,b,8b,8c6,d6,e6,c6,a,2a,8p,d6,8f6,a6,8g6,8f6,e6,8c6,e6,8d6,8c6,b,8b,8c6,d6,e6,c6,a,a"},
+                  {"Pacman", "Pacman:d=4,o=5,b=112:32b,32p,32b6,32p,32f#6,32p,32d#6,32p,32b6,32f#6,16p,16d#6,16p,32c6,32p,32c7,32p,32g6,32p,32e6,32p,32c7,32g6,16p,16e6,16p,32b,32p,32b6,32p,32f#6,32p,32d#6,32p,32b6,32f#6,16p,16d#6,16p,32d#6,32e6,32f6,32p,32f6,32f#6,32g6,32p,32g6,32g#6,32a6,32p,32b.6"},
+                  {"Indiana Jones", "Indiana Jones:d=4,o=5,b=250:e,8p,8f,8g,8p,1c6,8p.,d,8p,8e,1f,p.,g,8p,8a,8b,8p,1f6,p,a,8p,8b,2c6,2d6,2e6,e,8p,8f,8g,8p,1c6,p,d6,8p,8e6,1f.6,g,8p,8g,e.6,8p,d6,8p,8g,e.6,8p,d6,8p,8g,f.6,8p,e6,8p,8d6,2c6"},
+                  {"Mission Impossible", "MissionImpossible:d=4,o=5,b=180:16d5,16d#5,16d5,16d#5,16d5,16d#5,16d5,16d#5,16d5,16d#5,16d5,16d#5,16d5,16d#5,16d5,16d#5,16a#4,16c5,16d5,8d5,8d5,16a#4,16c5,16d5,16d#5,16f5,16d#5,16d5,16c5,16a#4,8a#4,8a#4,16a#4,16c5,16d5,8d5,8d5,16a#4,16c5,16d5,16d#5,16f5,16d#5,16d5,16c5,16a#4"},
+                  {"Harry Potter", "HarryPotter:d=4,o=5,b=125:8b,8e6,8g6,8f#6,8e6,8b6,a6,8f#6,8e6,8g6,8f#6,8d#6,8f6,b,8b,8e6,8g6,8f#6,8e6,8b6,2d7,8c#7,8c7,8g#6,8c7,8b6,8a#6,8a6,8g#6,8a6,8e6"},
+                  {"Jingle Bells", "JingleBells:d=4,o=5,b=170:b,b,b,8p,b,b,b,8p,b,d6,g.,8a,2b,c6,c6,c6.,8c6,c6,b,b,8b,8b,b,a,a,b,2a,2d6"},
+                  {"The Simpsons", "TheSimpsons:d=4,o=5,b=160:c.6,e6,f#6,8a6,g.6,e6,c6,8a,8f#,8f#,8f#,2g,8p,8p,8f#,8f#,8f#,8g,a#.,8c6,8c6,8c6,c6"},
+                };
+
+                const std::string selected(id(buzzer_melody).current_option());
+                for (const auto &m : MELODIES) {
+                  if (selected == m.name) {
+                    id(rtttl_buzzer).play(m.tune);
+                    return;
+                  }
+                }
+                ESP_LOGW("melody", "No tune defined for '%s'", selected.c_str());
 
   - platform: template
     name: "Play Entered RTTTL Melody"
@@ -725,42 +678,7 @@ button:
       - select.set:
           id: led_effect_select
           option: "Off"
-      - light.turn_on:
-          id: led1_on
-          brightness: 40%
-          red: 100%
-          green: 0%
-          blue: 100%
-      - light.turn_on:
-          id: led2_on
-          brightness: 40%
-          red: 100%
-          green: 0%
-          blue: 100%
-      - light.turn_on:
-          id: led3_on
-          brightness: 40%
-          red: 100%
-          green: 0%
-          blue: 100%
-      - light.turn_on:
-          id: led1_off
-          brightness: 30%
-          red: 100%
-          green: 99.6%
-          blue: 98%
-      - light.turn_on:
-          id: led2_off
-          brightness: 30%
-          red: 100%
-          green: 99.6%
-          blue: 98%
-      - light.turn_on:
-          id: led3_off
-          brightness: 30%
-          red: 100%
-          green: 99.6%
-          blue: 98%
+      - script.execute: apply_default_led_colors
       - lambda: |-
           id(first_boot_completed) = false;
           id(mqtt_password_real) = "";
@@ -794,22 +712,17 @@ text_sensor:
     id: mqtt_status_text
     icon: mdi:cloud-check
     entity_category: ""
-    update_interval: 5s
+    update_interval: never   # updated by mqtt on_connect / on_disconnect
     web_server:
       sorting_group_id: mqtt_details_group
       sorting_weight: 5
-    lambda: |-
-      if (id(mqtt_client).is_connected()) {
-        return {"Connected"};
-      }
-      return {"Disconnected"};
 
   - platform: template
     name: "Device ID"
     id: device_id_text
     icon: mdi:identifier
     entity_category: ""
-    update_interval: 60s
+    update_interval: never   # static: published once at boot
     web_server:
       sorting_group_id: device_details_group
       sorting_weight: 5
@@ -826,7 +739,7 @@ text_sensor:
     id: wifi_reset_status_text
     icon: mdi:wifi-alert
     entity_category: ""
-    update_interval: 5s
+    update_interval: never   # updated by the wifi_reset_* scripts
     web_server:
       sorting_group_id: network_details_group
       sorting_weight: 111
@@ -841,7 +754,7 @@ text_sensor:
     id: esphome_version_text
     icon: mdi:chip
     entity_category: ""
-    update_interval: 60s
+    update_interval: never   # static: published once at boot
     web_server:
       sorting_group_id: device_details_group
       sorting_weight: 10
@@ -853,7 +766,7 @@ text_sensor:
     id: firmware_build_date_text
     icon: mdi:calendar
     entity_category: ""
-    update_interval: 60s
+    update_interval: never   # static: published once at boot
     web_server:
       sorting_group_id: device_details_group
       sorting_weight: 20
@@ -895,6 +808,7 @@ text_sensor:
     name: "IP Address (IPv4)"
     id: ip_ipv4
     icon: mdi:ip-network
+    update_interval: never   # updated on WiFi connect
     web_server:
       sorting_group_id: network_details_group
       sorting_weight: 80
@@ -907,23 +821,6 @@ text_sensor:
         }
       }
       return {"Not Connected"};
-
-  - platform: template
-    name: "IP Address (IPv6)"
-    id: ip_ipv6
-    icon: mdi:ip-network-outline
-    web_server:
-      sorting_group_id: network_details_group
-      sorting_weight: 85
-    lambda: |-
-      for (auto &addr : esphome::network::get_ip_addresses()) {
-        if (addr.is_set() && addr.is_ip6()) {
-          char ip_buf[esphome::network::IP_ADDRESS_BUFFER_SIZE];
-          addr.str_to(ip_buf);
-          return {std::string(ip_buf)};
-        }
-      }
-      return {"No IPv6 Address"};
 
   - platform: template
     name: "Uptime"
@@ -962,6 +859,12 @@ sensor:
     update_interval: 60s
     entity_category: ""
     icon: mdi:wifi
+    filters:
+      - delta: 5          # only publish when the signal moved >= 5 dBm
+    on_value:
+      - sensor.template.publish:
+          id: wifi_percentage
+          state: !lambda 'return min(max(2 * (x + 100.0f), 0.0f), 100.0f);'
     web_server:
       sorting_group_id: network_details_group
       sorting_weight: 50
@@ -969,12 +872,10 @@ sensor:
   - platform: template
     name: "WiFi Signal (%)"
     id: wifi_percentage
-    update_interval: 60s
+    update_interval: never   # published together with WiFi Signal (dBm)
     entity_category: ""
     unit_of_measurement: "%"
     icon: mdi:wifi-strength-4
-    lambda: |-
-      return min(max(2 * (id(wifi_dbm).state + 100.0f), 0.0f), 100.0f);
     web_server:
       sorting_group_id: network_details_group
       sorting_weight: 60
@@ -988,12 +889,16 @@ sensor:
     free:
       entity_category: ""
       name: "Heap Free"
+      filters:
+        - delta: 5000
       web_server:
         sorting_group_id: device_details_group
         sorting_weight: 40
     block:
       entity_category: ""
       name: "Heap Max Block"
+      filters:
+        - delta: 5000
       web_server:
         sorting_group_id: device_details_group
         sorting_weight: 50
@@ -1002,30 +907,40 @@ sensor:
   - platform: ld2410
     moving_distance:
       name: "Radar Moving Distance"
+      filters:
+        - delta: 20
       entity_category: ""
       web_server:
         sorting_group_id: radar_group
         sorting_weight: 40
     still_distance:
       name: "Radar Still Distance"
+      filters:
+        - delta: 20
       entity_category: ""
       web_server:
         sorting_group_id: radar_group
         sorting_weight: 50
     moving_energy:
       name: "Radar Moving Energy"
+      filters:
+        - delta: 10
       entity_category: ""
       web_server:
         sorting_group_id: radar_group
         sorting_weight: 60
     still_energy:
       name: "Radar Still Energy"
+      filters:
+        - delta: 10
       entity_category: ""
       web_server:
         sorting_group_id: radar_group
         sorting_weight: 70
     detection_distance:
       name: "Radar Detection Distance"
+      filters:
+        - delta: 20
       entity_category: ""
       web_server:
         sorting_group_id: radar_group
@@ -1306,6 +1221,8 @@ select:
       sorting_group_id: mqtt_details_group
       sorting_weight: 45
 
+  # NOTE: the option names must match the names in the MELODIES table of the
+  # "Play Selected Melody" button.
   - platform: template
     name: "Speaker Melody"
     id: buzzer_melody
@@ -1335,6 +1252,8 @@ select:
       sorting_group_id: speaker_group
       sorting_weight: 80
 
+  # NOTE: the option names must match the effect names of the "LED Strip" light.
+  # "Off" maps to the "None" effect.
   - platform: template
     name: "LED Effect"
     id: led_effect_select
@@ -1357,89 +1276,22 @@ select:
     web_server:
       sorting_group_id: sensors_control_group
       sorting_weight: 7
+    # CHANGED: one action instead of 10 if-blocks.
     on_value:
       then:
+        - light.turn_on:
+            id: led_strip
+            brightness: 100%
+            effect: !lambda |-
+              std::string selected(id(led_effect_select).current_option());
+              return selected == "Off" ? std::string("None") : selected;
         - if:
             condition:
-              lambda: 'return id(led_effect_select).current_option() == "Off";'
+              lambda: 'return std::string(id(led_effect_select).current_option()) == "Off";'
             then:
-              - light.turn_on:
-                  id: led_strip
-                  effect: "None"
-                  brightness: 100%
-              - script.execute: sync_leds_to_outputs
-        - if:
-            condition:
-              lambda: 'return id(led_effect_select).current_option() == "Pulse";'
-            then:
-              - light.turn_on:
-                  id: led_strip
-                  effect: "Pulse"
-                  brightness: 100%
-        - if:
-            condition:
-              lambda: 'return id(led_effect_select).current_option() == "Strobe";'
-            then:
-              - light.turn_on:
-                  id: led_strip
-                  effect: "Strobe"
-                  brightness: 100%
-        - if:
-            condition:
-              lambda: 'return id(led_effect_select).current_option() == "Flicker";'
-            then:
-              - light.turn_on:
-                  id: led_strip
-                  effect: "Flicker"
-                  brightness: 100%
-        - if:
-            condition:
-              lambda: 'return id(led_effect_select).current_option() == "Scan";'
-            then:
-              - light.turn_on:
-                  id: led_strip
-                  effect: "Scan"
-                  brightness: 100%
-        - if:
-            condition:
-              lambda: 'return id(led_effect_select).current_option() == "Rainbow";'
-            then:
-              - light.turn_on:
-                  id: led_strip
-                  effect: "Rainbow"
-                  brightness: 100%
-        - if:
-            condition:
-              lambda: 'return id(led_effect_select).current_option() == "Color Wipe";'
-            then:
-              - light.turn_on:
-                  id: led_strip
-                  effect: "Color Wipe"
-                  brightness: 100%
-        - if:
-            condition:
-              lambda: 'return id(led_effect_select).current_option() == "Twinkle";'
-            then:
-              - light.turn_on:
-                  id: led_strip
-                  effect: "Twinkle"
-                  brightness: 100%
-        - if:
-            condition:
-              lambda: 'return id(led_effect_select).current_option() == "Random Twinkle";'
-            then:
-              - light.turn_on:
-                  id: led_strip
-                  effect: "Random Twinkle"
-                  brightness: 100%
-        - if:
-            condition:
-              lambda: 'return id(led_effect_select).current_option() == "Fireworks";'
-            then:
-              - light.turn_on:
-                  id: led_strip
-                  effect: "Fireworks"
-                  brightness: 100%
+              - script.execute:
+                  id: sync_leds_to_outputs
+                  which: 0
 
   # ADDED: LD2410 radar select
   - platform: ld2410
@@ -1473,10 +1325,14 @@ switch:
     entity_category: ""
     icon: mdi:lamp
     on_turn_on:
-      - light.turn_on: led1_on
+      - script.execute:
+          id: sync_leds_to_outputs
+          which: 1
       - script.execute: play_manual_buzzer_tone
     on_turn_off:
-      - light.turn_on: led1_off
+      - script.execute:
+          id: sync_leds_to_outputs
+          which: 1
       - script.execute: play_manual_buzzer_tone
     web_server:
       sorting_group_id: sensors_control_group
@@ -1490,10 +1346,14 @@ switch:
     entity_category: ""
     icon: mdi:lamp
     on_turn_on:
-      - light.turn_on: led2_on
+      - script.execute:
+          id: sync_leds_to_outputs
+          which: 2
       - script.execute: play_manual_buzzer_tone
     on_turn_off:
-      - light.turn_on: led2_off
+      - script.execute:
+          id: sync_leds_to_outputs
+          which: 2
       - script.execute: play_manual_buzzer_tone
     web_server:
       sorting_group_id: sensors_control_group
@@ -1507,31 +1367,18 @@ switch:
     entity_category: ""
     icon: mdi:lamp
     on_turn_on:
-      - light.turn_on: led3_on
+      - script.execute:
+          id: sync_leds_to_outputs
+          which: 3
       - script.execute: play_manual_buzzer_tone
     on_turn_off:
-      - light.turn_on: led3_off
+      - script.execute:
+          id: sync_leds_to_outputs
+          which: 3
       - script.execute: play_manual_buzzer_tone
     web_server:
       sorting_group_id: sensors_control_group
       sorting_weight: 70
-
-  # ADDED: Bluetooth proxy on/off (default Off)
-  - platform: template
-    name: "Bluetooth Proxy"
-    id: bluetooth_proxy_switch
-    icon: mdi:bluetooth
-    entity_category: ""
-    optimistic: true
-    restore_mode: RESTORE_DEFAULT_OFF
-    turn_on_action:
-      - esp32_ble_tracker.start_scan:
-          continuous: true
-    turn_off_action:
-      - esp32_ble_tracker.stop_scan:
-    web_server:
-      sorting_group_id: bluetooth_group
-      sorting_weight: 10
 
   # ADDED: LD2410 radar switches
   - platform: ld2410
@@ -1541,12 +1388,6 @@ switch:
       web_server:
         sorting_group_id: radar_group
         sorting_weight: 90
-    bluetooth:
-      name: "Radar Bluetooth"
-      entity_category: ""
-      web_server:
-        sorting_group_id: radar_group
-        sorting_weight: 100
 
 binary_sensor:
   - platform: gpio
