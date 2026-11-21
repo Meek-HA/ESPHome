@@ -110,6 +110,9 @@ esphome:
     # each (re)connect by itself, so they never need to be polled.
     - priority: -100
       then:
+        - script.execute:
+            id: sync_relays
+            which: 0
         - component.update: esphome_version_text
         - component.update: firmware_build_date_text
         - component.update: device_id_text
@@ -390,6 +393,28 @@ script:
           }
           if (which == 0 || which == 3) {
             if (id(output_3).state) id(led3_on).turn_on().perform(); else id(led3_off).turn_on().perform();
+          }
+
+  # Drives the physical relays. A relay is ON when its output is logically ON,
+  # or ALWAYS when the output is in "Zigbee" mode (keeps the Zigbee lamp powered).
+  # which: 0 = all three, 1..3 = only that output.
+  - id: sync_relays
+    mode: restart
+    parameters:
+      which: int
+    then:
+      - lambda: |-
+          if (which == 0 || which == 1) {
+            const bool zigbee = std::string(id(output_1_mode).current_option()) == "Zigbee";
+            if (zigbee || id(output_1).state) id(relay_1).turn_on(); else id(relay_1).turn_off();
+          }
+          if (which == 0 || which == 2) {
+            const bool zigbee = std::string(id(output_2_mode).current_option()) == "Zigbee";
+            if (zigbee || id(output_2).state) id(relay_2).turn_on(); else id(relay_2).turn_off();
+          }
+          if (which == 0 || which == 3) {
+            const bool zigbee = std::string(id(output_3_mode).current_option()) == "Zigbee";
+            if (zigbee || id(output_3).state) id(relay_3).turn_on(); else id(relay_3).turn_off();
           }
 
 text:
@@ -685,6 +710,15 @@ button:
       - select.set:
           id: led_effect_select
           option: "Off"
+      - select.set:
+          id: output_1_mode
+          option: "Normal"
+      - select.set:
+          id: output_2_mode
+          option: "Normal"
+      - select.set:
+          id: output_3_mode
+          option: "Normal"
       - script.execute: apply_default_led_colors
       - lambda: |-
           id(first_boot_completed) = false;
@@ -1301,6 +1335,72 @@ select:
                   id: sync_leds_to_outputs
                   which: 0
 
+  # Normal: the relay follows the output state.
+  # Zigbee: the relay stays ON permanently (powers a Zigbee lamp); the output
+  # state is only a logical on/off that is reported to Home Assistant.
+  - platform: template
+    name: "Output1 Mode"
+    id: output_1_mode
+    entity_category: ""
+    icon: mdi:zigbee
+    optimistic: true
+    restore_value: true
+    initial_option: "Normal"
+    options:
+      - "Normal"
+      - "Zigbee"
+    on_value:
+      - script.execute:
+          id: sync_relays
+          which: 1
+    web_server:
+      sorting_group_id: sensors_control_group
+      sorting_weight: 55
+
+  # Normal: the relay follows the output state.
+  # Zigbee: the relay stays ON permanently (powers a Zigbee lamp); the output
+  # state is only a logical on/off that is reported to Home Assistant.
+  - platform: template
+    name: "Output2 Mode"
+    id: output_2_mode
+    entity_category: ""
+    icon: mdi:zigbee
+    optimistic: true
+    restore_value: true
+    initial_option: "Normal"
+    options:
+      - "Normal"
+      - "Zigbee"
+    on_value:
+      - script.execute:
+          id: sync_relays
+          which: 2
+    web_server:
+      sorting_group_id: sensors_control_group
+      sorting_weight: 65
+
+  # Normal: the relay follows the output state.
+  # Zigbee: the relay stays ON permanently (powers a Zigbee lamp); the output
+  # state is only a logical on/off that is reported to Home Assistant.
+  - platform: template
+    name: "Output3 Mode"
+    id: output_3_mode
+    entity_category: ""
+    icon: mdi:zigbee
+    optimistic: true
+    restore_value: true
+    initial_option: "Normal"
+    options:
+      - "Normal"
+      - "Zigbee"
+    on_value:
+      - script.execute:
+          id: sync_relays
+          which: 3
+    web_server:
+      sorting_group_id: sensors_control_group
+      sorting_weight: 75
+
   # ADDED: LD2410 radar select
   - platform: ld2410
     distance_resolution:
@@ -1325,19 +1425,54 @@ switch:
       sorting_group_id: sensors_control_group
       sorting_weight: 19
 
+  # Physical relay of output 1. Internal: it is driven by the sync_relays script
+  # (ON when the output is logically ON, or always ON in "Zigbee" mode).
   - platform: gpio
+    id: relay_1
+    name: "Output1 Relay"
+    internal: true
+    pin: GPIO18
+    restore_mode: RESTORE_DEFAULT_ON
+
+  # Physical relay of output 2. Internal: it is driven by the sync_relays script
+  # (ON when the output is logically ON, or always ON in "Zigbee" mode).
+  - platform: gpio
+    id: relay_2
+    name: "Output2 Relay"
+    internal: true
+    pin: GPIO19
+    restore_mode: RESTORE_DEFAULT_ON
+
+  # Physical relay of output 3. Internal: it is driven by the sync_relays script
+  # (ON when the output is logically ON, or always ON in "Zigbee" mode).
+  - platform: gpio
+    id: relay_3
+    name: "Output3 Relay"
+    internal: true
+    pin: GPIO21
+    restore_mode: RESTORE_DEFAULT_ON
+
+  # Logical state of output 1: what the buttons toggle, what the LED shows and
+  # what Home Assistant sees. In "Zigbee" mode the relay stays on regardless.
+  - platform: template
     id: output_1
     name: "Output1"
-    pin: GPIO18
+    optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
     entity_category: ""
     icon: mdi:lamp
     on_turn_on:
       - script.execute:
+          id: sync_relays
+          which: 1
+      - script.execute:
           id: sync_leds_to_outputs
           which: 1
       - script.execute: play_manual_buzzer_tone
     on_turn_off:
+      - script.execute:
+          id: sync_relays
+          which: 1
       - script.execute:
           id: sync_leds_to_outputs
           which: 1
@@ -1346,19 +1481,27 @@ switch:
       sorting_group_id: sensors_control_group
       sorting_weight: 50
 
-  - platform: gpio
+  # Logical state of output 2: what the buttons toggle, what the LED shows and
+  # what Home Assistant sees. In "Zigbee" mode the relay stays on regardless.
+  - platform: template
     id: output_2
     name: "Output2"
-    pin: GPIO19
+    optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
     entity_category: ""
     icon: mdi:lamp
     on_turn_on:
       - script.execute:
+          id: sync_relays
+          which: 2
+      - script.execute:
           id: sync_leds_to_outputs
           which: 2
       - script.execute: play_manual_buzzer_tone
     on_turn_off:
+      - script.execute:
+          id: sync_relays
+          which: 2
       - script.execute:
           id: sync_leds_to_outputs
           which: 2
@@ -1367,19 +1510,27 @@ switch:
       sorting_group_id: sensors_control_group
       sorting_weight: 60
 
-  - platform: gpio
+  # Logical state of output 3: what the buttons toggle, what the LED shows and
+  # what Home Assistant sees. In "Zigbee" mode the relay stays on regardless.
+  - platform: template
     id: output_3
     name: "Output3"
-    pin: GPIO21
+    optimistic: true
     restore_mode: RESTORE_DEFAULT_ON
     entity_category: ""
     icon: mdi:lamp
     on_turn_on:
       - script.execute:
+          id: sync_relays
+          which: 3
+      - script.execute:
           id: sync_leds_to_outputs
           which: 3
       - script.execute: play_manual_buzzer_tone
     on_turn_off:
+      - script.execute:
+          id: sync_relays
+          which: 3
       - script.execute:
           id: sync_leds_to_outputs
           which: 3
