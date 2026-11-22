@@ -131,6 +131,8 @@ esp32:
   variant: esp32
   framework:
     type: esp-idf
+    sdkconfig_options:
+      CONFIG_ESP_TASK_WDT_TIMEOUT_S: "15"
 
 logger:
 
@@ -189,6 +191,8 @@ web_server:
       sorting_weight: 35
 
 mqtt:
+  idf_send_async: true
+  keepalive: 30s
   id: mqtt_client
   broker: "mqtt.meek-io.com"
   port: 1883
