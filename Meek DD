@@ -1,19 +1,46 @@
+
 # Meek DD: DSMR P1 meter + DFPlayer Mini
 #
-# MQTT handling ported from the Meek MT3:
-#   - runtime-editable broker / port / username / password (web UI + HA)
-#   - MQTT Security select (plain TCP or TLS with the Meek MQTT Root CA)
-#   - MQTT starts disabled at boot and is configured + enabled by the
-#     apply_mqtt_settings script once WiFi is connected
-#   - "Save and Reboot" button and "MQTT Status" sensor
-#
-# "Network Details" and "Device Details" web groups ported from the Meek MT3
-# (WiFi / IP info, Reset WiFi Settings, device info, heap, uptime, restart, reset).
-#
-# REQUIRES: the same patched MQTT component folder as the Meek MT3, at
-# <esphome config dir>/components/mqtt (an empty CA certificate forces plain TCP).
+# MQTT handling and Home Assistant exposure match the Meek MT3.
+# DSMR Variant switches UART settings at runtime.
+# CRC checking is permanently enabled.
 
-# ADDED: loads the patched MQTT component from /config/components/mqtt
+substitutions:
+  mqtt_ca_cert: |
+    -----BEGIN CERTIFICATE-----
+    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
+    63nY
+    -----END CERTIFICATE-----
+
 external_components:
   - source:
       type: local
@@ -23,30 +50,41 @@ external_components:
 esphome:
   name: meek-dd
   friendly_name: Meek DD
-  # ADDED: restore masked password display after components are ready
   on_boot:
-    priority: 700
-    then:
-      - delay: 2s
-      - lambda: |-
-          if (!id(mqtt_password_real).empty()) {
-            id(mqtt_password_text).publish_state("********");
-          } else {
-            id(mqtt_password_text).publish_state("");
-          }
+    - priority: 700
+      then:
+        - delay: 2s
+        - lambda: |-
+            if (!id(mqtt_password_real).empty()) {
+              id(mqtt_password_text).publish_state("********");
+            } else {
+              id(mqtt_password_text).publish_state("");
+            }
+
+    - priority: -100
+      then:
+        - component.update: esphome_version_text
+        - component.update: firmware_build_date_text
+        - component.update: device_id_text
+        - component.update: wifi_reset_status_text
+        - text_sensor.template.publish:
+            id: mqtt_status_text
+            state: "Disconnected"
+        - script.execute: apply_dsmr_variant
 
 esp32:
   variant: esp32
   framework:
     type: esp-idf
+    sdkconfig_options:
+      CONFIG_ESP_TASK_WDT_TIMEOUT_S: "15"
 
-
-# ADDED: needed by the Heap Free, Heap Max Block and Reset Reason entities
 debug:
   update_interval: 30s
 
+preferences:
+  flash_write_interval: 1min
 
-# Example configuration entry
 web_server:
   port: 80
   version: 3
@@ -55,7 +93,6 @@ web_server:
     username: Meek
     password: Meek-io
     type: basic
-  # CHANGED: groups now match the Meek MT3 (Network 10, MQTT 20, Device 30)
   sorting_groups:
     - id: network_details_group
       name: "Network Details"
@@ -66,67 +103,60 @@ web_server:
     - id: device_details_group
       name: "Device Details"
       sorting_weight: 30
+    - id: dsmr_settings_group
+      name: "DSMR Settings"
+      sorting_weight: 40
 
 ota:
   - platform: esphome
 
-
 wifi:
+  reboot_timeout: 0s
   ssid: !secret wifi_ssid
   password: !secret wifi_password
-  # ADDED: configure and enable MQTT once WiFi is up
   on_connect:
     then:
       - script.execute: apply_mqtt_settings
+      - component.update: ip_ipv4
   ap:
     ssid: Meek DD
-    # CHANGED: the pasted value was a Markdown link; written here as the plain string
     password: "www.meek-io.com"
 
+captive_portal:
+
+logger:
+
 mqtt:
+  idf_send_async: true
+  keepalive: 30s
   id: mqtt_client
-  # Defaults only: the real values come from the MQTT text entities below
-  # and are applied at runtime by apply_mqtt_settings.
-  broker: mqtt.meek-io.com
+  broker: "mqtt.meek-io.com"
   port: 1883
   username: ""
   password: ""
-  # CHANGED: was true. MQTT is now enabled by apply_mqtt_settings after WiFi connects.
   enable_on_boot: false
   reboot_timeout: 0s
   discovery: true
   discovery_prefix: homeassistant
   discovery_retain: true
-  # ADDED: puts this device's MAC address in the discovery unique ID so it cannot
-  # collide with other Meek devices in Home Assistant.
-  # WARNING: this changes the unique ID of every entity of this device in Home
-  # Assistant (new entities are created, old ones become unavailable, and
-  # history / Energy dashboard statistics do not carry over automatically).
-  # Delete this line if you want to keep the existing entity IDs.
   discovery_unique_id_generator: mac
-  # Kept so USE_MQTT_TLS is defined and the cert setters get generated.
-  # The script below clears/overrides it at runtime based on the security select.
-  certificate_authority: "-----BEGIN CERTIFICATE----- MIIFnzCCA4egAwIBAgIUWU6ZQJOY1WCmKGIqILKpyVMZFccwDQYJKoZIhvcNAQEL BQAwXzELMAkGA1UEBhMCTkwxEDAOBgNVBAgMB1plZWxhbmQxEzARBgNVBAcMCk1p ZGRlbGJ1cmcxDTALBgNVBAoMBE1lZWsxGjAYBgNVBAMMEU1lZWsgTVFUVCBSb290 IENBMB4XDTI2MTAxMTEwMTIzMFoXDTM2MTAwODEwMTIzMFowXzELMAkGA1UEBhMC TkwxEDAOBgNVBAgMB1plZWxhbmQxEzARBgNVBAcMCk1pZGRlbGJ1cmcxDTALBgNV BAoMBE1lZWsxGjAYBgNVBAMMEU1lZWsgTVFUVCBSb290IENBMIICIjANBgkqhkiG 9w0BAQEFAAOCAg8AMIICCgKCAgEAoad7C1xkCGIplaWH2TpCUKoRFiqJGHMxh4Kb gHuLzROwDCyqcUPcToQPUsfy9soSY7/pdTgH5lsbG6hd1JHSeRV0d2yu8oDvstpk rkgNECSvX2uw3oP5cJvaDGmUTcu9CT0FlBfz9tigO1yIndSeBDxuFh661dNtmV6d IVOGZ2dVl72F8W+tTe39qVrufQfafjhL72OsOki9AfRKqGCnb5wegHIAZf3zxH0g aus8guvbRLrPQhlSRyIJ6QmdKcMwh0Y+h23/G2utE4dqxzEI4Pv6nzeEW0ceUYmn DNzx24V/QvfEoWsfnjsvBCeUCPC5oiPWqo57zlcZ6eqS1tNB8K2MFqU3HT9yCS04 3GsXo6ZGMWfACYTZYiQyzqAPv+LncGIIQZ4eNgGCtigMCM+VsAWxGCKzz3PIp4Mo 31H7etUNYlSQy9oE1XFlaOMxE/irXS5i7/YoRR15lk9Gs0pPlWs+BqYMsBJUc1wc oOTx2kteDsD5BMVkncm/dB+wE2xrY1XiZMCMsfu39b/FAWlvjUiIqzWNBxkMyBRg kh/be6FOHPrNeNw3TXj86icHK8XWRqyyDQA03GEQLyvvrXfxmu3QTIA1xxuczHpr r4EBpoyACuNDbM+HX1eIGvtyijni2sFxEYH/eIZ1MbQh6m2mfya0D+76OF0+ARg4 1yS+hksCAwEAAaNTMFEwHQYDVR0OBBYEFEKGqish34vmEFBVF4DIgm1SqY+4MB8G A1UdIwQYMBaAFEKGqish34vmEFBVF4DIgm1SqY+4MA8GA1UdEwEB/wQFMAMBAf8w DQYJKoZIhvcNAQELBQADggIBAJg+secHLCSDG/WG1zBcABC/SfFgpJTHTztHh1C3 S9U1CUi65Xddy9J8LieFanuFSVs8TLOYWWfdsNcOyTDFJAX9yszxsLwPih0cVtmK LNWlfad2OegEuDJnUPT/WaP5KM2WO3sgw2XWnjeJo+AJz08AV/IkylqRp1rdG0vK FBn60w4P60nTOf/FvPcZYU8JDgZSApO8yE8f/rhKcu58NOaH7IYsV7lygejwv71S +qPMOBaBjJM+B36VlZeFfsJe+iaRFwkI/2yiCnlclQwQ/KdbhtrMc6r+NjSYzHZA Lg0uNBcY10fbofrb0iRFZ1QzvQ0QBvNdpQKayvt+X0I9b04q0n1kroLK0pQiSTpz iLd7DF8WfIm+UqByrZcRIn9w78gKkcqDbIxyp9LFSPXx+ozzHIFaXaLTvtoeRQhk QcCvW8LZ+NBl8eBphCFJ9zle47NEzhn1iAwsVlHk6Df7/Cpt4Tvq/Yp6ANys2pxs 0oYUfbU3EITtWZQn7NjML12c79uh1YHbAgus3MOXA+/4b5/DSZ8KIT4EoIJpiXUz uzb6jap5UjD862l6Yzv3JUpe0KfrV9m6WdKfyU39xVxTVdf33exfq5Q8jDHJ/Xde ZPXDgbxluIIwoMzQ2QxeL5M2NxS1j6VT9PHdYflBPte1Oz5L1GTfdekwovE7vnCn 63nY -----END CERTIFICATE-----"
+  on_connect:
+    - text_sensor.template.publish:
+        id: mqtt_status_text
+        state: "Connected"
+  on_disconnect:
+    - text_sensor.template.publish:
+        id: mqtt_status_text
+        state: "Disconnected"
+  certificate_authority: ${mqtt_ca_cert}
   skip_cert_cn_check: false
 
-
-captive_portal:
-
-logger:
-#  level: DEBUG
-#  baud_rate: 0  # free hardware UART for DSMR
-
-
-# UART buses
 uart:
-  # DSMR P1 UART
   - id: uart_bus
     rx_pin: GPIO23
     baud_rate: 115200
     rx_buffer_size: 1700
-  # DFPlayer Mini UART
-  # GPIO18 = ESP32 TX -> DFPlayer RX (use a 1k resistor in series)
-  # GPIO14 = ESP32 RX -> DFPlayer TX
+
   - id: uart_dfplayer
     tx_pin: GPIO18
     rx_pin: GPIO14
@@ -137,9 +167,7 @@ dsmr:
   uart_id: uart_bus
   crc_check: true
   max_telegram_length: 1700
-  # request_pin: GPIOxx   # only if your hardware supports P1 data request
 
-# DFPlayer Mini MP3 player
 dfplayer:
   id: dfplayer_mini
   uart_id: uart_dfplayer
@@ -150,44 +178,41 @@ dfplayer:
           id: dfplayer_current_track
           value: '0'
 
-# Globals to track DFPlayer state (the component has no getters)
 globals:
   - id: dfplayer_volume
     type: int
     initial_value: '15'
+
   - id: dfplayer_current_track
     type: int
     initial_value: '0'
+
   - id: dfplayer_selected_track
     type: int
     initial_value: '1'
+
   - id: dfplayer_device
     type: int
-    initial_value: '2'   # TF_CARD = 2
+    initial_value: '2'
+
   - id: dfplayer_eq
     type: int
-    initial_value: '0'   # NORMAL = 0
+    initial_value: '0'
+
   - id: button_lock_seconds
     type: int
     initial_value: '10'
-  # ADDED: the real MQTT password (the text entity only shows "********")
+
   - id: mqtt_password_real
     type: std::string
     restore_value: true
     initial_value: '""'
-  # ADDED: true for 10 s after the first press of "Reset WiFi Settings"
+
   - id: wifi_reset_armed
     type: bool
     restore_value: no
     initial_value: "false"
 
-# Script that plays the selected track. mode: single means that while it is
-# running (play + lock delay), any further call to it - from the physical
-# button or the "Play Selected Track" web/HA button - is simply ignored.
-# This is what actually blocks the button; a delay: alone inside on_press
-# would NOT do this, since each trigger spawns its own independent
-# automation run. The delay length comes from the "Button Lock Duration"
-# number entity (0-30s, see below) via the button_lock_seconds global.
 script:
   - id: play_selected_track
     mode: single
@@ -198,7 +223,39 @@ script:
           value: !lambda 'return id(dfplayer_selected_track);'
       - delay: !lambda 'return id(button_lock_seconds) * 1000;'
 
-  # ADDED: applies the MQTT text/select entities to the MQTT client (from the Meek MT3)
+  # DSMR UART settings. CRC is permanently enabled.
+  - id: apply_dsmr_variant
+    mode: restart
+    then:
+      - lambda: |-
+          const std::string variant = id(dsmr_variant_select).current_option();
+
+          uint32_t baud = 115200;
+          uint8_t data_bits = 8;
+          auto parity = esphome::uart::UART_CONFIG_PARITY_NONE;
+
+          if (variant == "DSMR 4/5 (115200 8N1, CRC)") {
+            // Default settings: 115200 8N1
+          } else if (variant == "DSMR 4/5 no CRC (115200 8N1)") {
+            // Same UART settings. CRC remains enabled.
+          } else if (variant == "DSMR 2.2/3 (9600 7N1)") {
+            baud = 9600;
+            data_bits = 7;
+          } else if (variant == "DSMR 2.2/3 (9600 7E1)") {
+            baud = 9600;
+            data_bits = 7;
+            parity = esphome::uart::UART_CONFIG_PARITY_EVEN;
+          }
+
+          id(uart_bus).set_baud_rate(baud);
+          id(uart_bus).set_data_bits(data_bits);
+          id(uart_bus).set_parity(parity);
+          id(uart_bus).load_settings(false);
+
+          ESP_LOGI("dsmr_config",
+                   "Variant '%s': %u baud, %u data bits, CRC permanently ON",
+                   variant.c_str(), (unsigned) baud, (unsigned) data_bits);
+
   - id: apply_mqtt_settings
     mode: restart
     then:
@@ -244,46 +301,26 @@ script:
           id(mqtt_client).set_password(id(mqtt_password_real));
 
           if (security == "MQTTS (Secure/TLS)") {
-            static const char *MQTT_CA_CERT =
-              "-----BEGIN CERTIFICATE-----\n"
-              "MIIFnzCCA4egAwIBAgIUWU6ZQJOY1WCmKGIqILKpyVMZFccwDQYJKoZIhvcNAQEL\n"
-              "BQAwXzELMAkGA1UEBhMCTkwxEDAOBgNVBAgMB1plZWxhbmQxEzARBgNVBAcMCk1p\n"
-              "ZGRlbGJ1cmcxDTALBgNVBAoMBE1lZWsxGjAYBgNVBAMMEU1lZWsgTVFUVCBSb290\n"
-              "IENBMB4XDTI2MTAxMTEwMTIzMFoXDTM2MTAwODEwMTIzMFowXzELMAkGA1UEBhMC\n"
-              "TkwxEDAOBgNVBAgMB1plZWxhbmQxEzARBgNVBAcMCk1pZGRlbGJ1cmcxDTALBgNV\n"
-              "BAoMBE1lZWsxGjAYBgNVBAMMEU1lZWsgTVFUVCBSb290IENBMIICIjANBgkqhkiG\n"
-              "9w0BAQEFAAOCAg8AMIICCgKCAgEAoad7C1xkCGIplaWH2TpCUKoRFiqJGHMxh4Kb\n"
-              "gHuLzROwDCyqcUPcToQPUsfy9soSY7/pdTgH5lsbG6hd1JHSeRV0d2yu8oDvstpk\n"
-              "rkgNECSvX2uw3oP5cJvaDGmUTcu9CT0FlBfz9tigO1yIndSeBDxuFh661dNtmV6d\n"
-              "IVOGZ2dVl72F8W+tTe39qVrufQfafjhL72OsOki9AfRKqGCnb5wegHIAZf3zxH0g\n"
-              "aus8guvbRLrPQhlSRyIJ6QmdKcMwh0Y+h23/G2utE4dqxzEI4Pv6nzeEW0ceUYmn\n"
-              "DNzx24V/QvfEoWsfnjsvBCeUCPC5oiPWqo57zlcZ6eqS1tNB8K2MFqU3HT9yCS04\n"
-              "3GsXo6ZGMWfACYTZYiQyzqAPv+LncGIIQZ4eNgGCtigMCM+VsAWxGCKzz3PIp4Mo\n"
-              "31H7etUNYlSQy9oE1XFlaOMxE/irXS5i7/YoRR15lk9Gs0pPlWs+BqYMsBJUc1wc\n"
-              "oOTx2kteDsD5BMVkncm/dB+wE2xrY1XiZMCMsfu39b/FAWlvjUiIqzWNBxkMyBRg\n"
-              "kh/be6FOHPrNeNw3TXj86icHK8XWRqyyDQA03GEQLyvvrXfxmu3QTIA1xxuczHpr\n"
-              "r4EBpoyACuNDbM+HX1eIGvtyijni2sFxEYH/eIZ1MbQh6m2mfya0D+76OF0+ARg4\n"
-              "1yS+hksCAwEAAaNTMFEwHQYDVR0OBBYEFEKGqish34vmEFBVF4DIgm1SqY+4MB8G\n"
-              "A1UdIwQYMBaAFEKGqish34vmEFBVF4DIgm1SqY+4MA8GA1UdEwEB/wQFMAMBAf8w\n"
-              "DQYJKoZIhvcNAQELBQADggIBAJg+secHLCSDG/WG1zBcABC/SfFgpJTHTztHh1C3\n"
-              "S9U1CUi65Xddy9J8LieFanuFSVs8TLOYWWfdsNcOyTDFJAX9yszxsLwPih0cVtmK\n"
-              "LNWlfad2OegEuDJnUPT/WaP5KM2WO3sgw2XWnjeJo+AJz08AV/IkylqRp1rdG0vK\n"
-              "FBn60w4P60nTOf/FvPcZYU8JDgZSApO8yE8f/rhKcu58NOaH7IYsV7lygejwv71S\n"
-              "+qPMOBaBjJM+B36VlZeFfsJe+iaRFwkI/2yiCnlclQwQ/KdbhtrMc6r+NjSYzHZA\n"
-              "Lg0uNBcY10fbofrb0iRFZ1QzvQ0QBvNdpQKayvt+X0I9b04q0n1kroLK0pQiSTpz\n"
-              "iLd7DF8WfIm+UqByrZcRIn9w78gKkcqDbIxyp9LFSPXx+ozzHIFaXaLTvtoeRQhk\n"
-              "QcCvW8LZ+NBl8eBphCFJ9zle47NEzhn1iAwsVlHk6Df7/Cpt4Tvq/Yp6ANys2pxs\n"
-              "0oYUfbU3EITtWZQn7NjML12c79uh1YHbAgus3MOXA+/4b5/DSZ8KIT4EoIJpiXUz\n"
-              "uzb6jap5UjD862l6Yzv3JUpe0KfrV9m6WdKfyU39xVxTVdf33exfq5Q8jDHJ/Xde\n"
-              "ZPXDgbxluIIwoMzQ2QxeL5M2NxS1j6VT9PHdYflBPte1Oz5L1GTfdekwovE7vnCn\n"
-              "63nY\n"
-              "-----END CERTIFICATE-----\n";
+            static std::string MQTT_CA_CERT;
+            if (MQTT_CA_CERT.empty()) {
+              const char *raw = R"CERT(${mqtt_ca_cert})CERT";
+              bool at_line_start = true;
+              for (const char *c = raw; *c != '\0'; c++) {
+                if (*c == '\n') {
+                  at_line_start = true;
+                } else if (at_line_start && (*c == ' ' || *c == '\t' || *c == '\r')) {
+                  continue;
+                } else {
+                  at_line_start = false;
+                }
+                MQTT_CA_CERT += *c;
+              }
+            }
 
-            id(mqtt_client).set_ca_certificate(MQTT_CA_CERT);
+            id(mqtt_client).set_ca_certificate(MQTT_CA_CERT.c_str());
             id(mqtt_client).set_skip_cert_cn_check(false);
             ESP_LOGI("mqtt_config", "MQTTS enabled: TLS will be used.");
           } else {
-            // Patched component: an empty CA certificate forces the plain TCP transport.
             id(mqtt_client).set_ca_certificate("");
             id(mqtt_client).set_skip_cert_cn_check(true);
             ESP_LOGI("mqtt_config", "MQTT enabled: unencrypted connection will be used.");
@@ -291,7 +328,6 @@ script:
 
           id(mqtt_client).enable();
 
-  # ADDED: two-step confirmation timer for "Reset WiFi Settings" (from the Meek MT3)
   - id: wifi_reset_arm_timer
     mode: restart
     then:
@@ -303,11 +339,11 @@ script:
           id(wifi_reset_armed) = false;
       - component.update: wifi_reset_status_text
 
-# ADDED: MQTT settings editable from the web UI / Home Assistant (from the Meek MT3).
 text:
   - platform: template
     name: "MQTT Broker"
     id: mqtt_broker_text
+    discovery: false
     entity_category: ""
     mode: text
     optimistic: true
@@ -322,6 +358,7 @@ text:
   - platform: template
     name: "MQTT Port"
     id: mqtt_port_text
+    discovery: false
     entity_category: ""
     mode: text
     optimistic: true
@@ -337,6 +374,7 @@ text:
   - platform: template
     name: "MQTT Username"
     id: mqtt_username_text
+    discovery: false
     entity_category: ""
     mode: text
     optimistic: true
@@ -351,6 +389,7 @@ text:
   - platform: template
     name: "MQTT Password"
     id: mqtt_password_text
+    discovery: false
     entity_category: ""
     mode: text
     optimistic: true
@@ -369,7 +408,6 @@ text:
             id(mqtt_password_text).publish_state("********");
           }
 
-# Speaker amplifier enable — GPIO4 HIGH = speaker active
 switch:
   - platform: gpio
     pin: GPIO4
@@ -377,13 +415,7 @@ switch:
     restore_mode: ALWAYS_ON
     icon: mdi:speaker
 
-# --- DFPlayer sensors (visible in web interface + Home Assistant) ---
-
 binary_sensor:
-  # Physical button on GPIO16 — plays the selected track on press.
-  # Hardware debounce: delayed_on 50ms filters contact bounce.
-  # Software lock: script.play_selected_track (mode: single) ignores any
-  # re-trigger for the 10 seconds the script is still running.
   - platform: gpio
     pin:
       number: GPIO16
@@ -398,7 +430,6 @@ binary_sensor:
       then:
         - script.execute: play_selected_track
 
-  # Play state — uses the DFPlayer's is_playing() method
   - platform: template
     id: dfplayer_playing
     name: "DFPlayer Playing"
@@ -407,7 +438,6 @@ binary_sensor:
       return id(dfplayer_mini).is_playing();
 
 sensor:
-  # --- DSMR sensors ---
   - platform: dsmr
     energy_delivered_tariff1:
       name: "Energy Consumed Tariff 1"
@@ -523,7 +553,6 @@ sensor:
       state_class: measurement
       accuracy_decimals: 3
 
-    # Gas (if you have a gas meter on the same P1)
     gas_delivered:
       name: "Gas Consumed"
       unit_of_measurement: "m³"
@@ -531,7 +560,6 @@ sensor:
       state_class: total_increasing
       accuracy_decimals: 3
 
-  # --- DFPlayer template sensors ---
   - platform: template
     id: dfplayer_volume_sensor
     name: "DFPlayer Volume"
@@ -552,13 +580,18 @@ sensor:
     lambda: |-
       return id(dfplayer_current_track);
 
-  # ADDED (Network Details): WiFi signal, from the Meek MT3
   - platform: wifi_signal
     name: "WiFi Signal (dBm)"
     id: wifi_dbm
     update_interval: 60s
     entity_category: ""
     icon: mdi:wifi
+    filters:
+      - delta: 5
+    on_value:
+      - sensor.template.publish:
+          id: wifi_percentage
+          state: !lambda 'return min(max(2 * (x + 100.0f), 0.0f), 100.0f);'
     web_server:
       sorting_group_id: network_details_group
       sorting_weight: 50
@@ -566,39 +599,38 @@ sensor:
   - platform: template
     name: "WiFi Signal (%)"
     id: wifi_percentage
-    update_interval: 60s
+    update_interval: never
     entity_category: ""
     unit_of_measurement: "%"
     icon: mdi:wifi-strength-4
-    lambda: |-
-      return min(max(2 * (id(wifi_dbm).state + 100.0f), 0.0f), 100.0f);
     web_server:
       sorting_group_id: network_details_group
       sorting_weight: 60
 
-  # ADDED (Device Details): raw uptime used by the formatted "Uptime" text sensor
   - platform: uptime
     id: device_uptime_raw
     update_interval: 60s
     internal: true
 
-  # ADDED (Device Details): heap sensors, from the Meek MT3
   - platform: debug
     free:
       entity_category: ""
       name: "Heap Free"
+      filters:
+        - delta: 5000
       web_server:
         sorting_group_id: device_details_group
         sorting_weight: 40
     block:
       entity_category: ""
       name: "Heap Max Block"
+      filters:
+        - delta: 5000
       web_server:
         sorting_group_id: device_details_group
         sorting_weight: 50
 
 text_sensor:
-  # --- DSMR text sensors ---
   - platform: dsmr
     identification:
       name: "DSMR Identification"
@@ -611,13 +643,11 @@ text_sensor:
     gas_equipment_id:
       name: "Gas Equipment ID"
 
-  # Optional: raw telegram for debugging (set internal: false if you want it visible)
   - platform: dsmr
     telegram:
       name: "Raw DSMR Telegram"
       internal: false
 
-  # --- DFPlayer text sensors ---
   - platform: template
     id: dfplayer_device_sensor
     name: "DFPlayer Device"
@@ -646,23 +676,16 @@ text_sensor:
         default: return std::string("Unknown");
       }
 
-  # ADDED: MQTT connection status (from the Meek MT3)
   - platform: template
     name: "MQTT Status"
     id: mqtt_status_text
     icon: mdi:cloud-check
     entity_category: ""
-    update_interval: 5s
+    update_interval: never
     web_server:
       sorting_group_id: mqtt_details_group
       sorting_weight: 5
-    lambda: |-
-      if (id(mqtt_client).is_connected()) {
-        return {"Connected"};
-      }
-      return {"Disconnected"};
 
-  # ADDED (Network Details): WiFi info, from the Meek MT3
   - platform: wifi_info
     bssid:
       entity_category: ""
@@ -690,6 +713,7 @@ text_sensor:
     name: "IP Address (IPv4)"
     id: ip_ipv4
     icon: mdi:ip-network
+    update_interval: never
     web_server:
       sorting_group_id: network_details_group
       sorting_weight: 80
@@ -708,7 +732,7 @@ text_sensor:
     id: wifi_reset_status_text
     icon: mdi:wifi-alert
     entity_category: ""
-    update_interval: 5s
+    update_interval: never
     web_server:
       sorting_group_id: network_details_group
       sorting_weight: 111
@@ -718,13 +742,12 @@ text_sensor:
       }
       return {"Idle"};
 
-  # ADDED (Device Details): device info, from the Meek MT3
   - platform: template
     name: "Device ID"
     id: device_id_text
     icon: mdi:identifier
     entity_category: ""
-    update_interval: 60s
+    update_interval: never
     web_server:
       sorting_group_id: device_details_group
       sorting_weight: 5
@@ -741,7 +764,7 @@ text_sensor:
     id: esphome_version_text
     icon: mdi:chip
     entity_category: ""
-    update_interval: 60s
+    update_interval: never
     web_server:
       sorting_group_id: device_details_group
       sorting_weight: 10
@@ -753,7 +776,7 @@ text_sensor:
     id: firmware_build_date_text
     icon: mdi:calendar
     entity_category: ""
-    update_interval: 60s
+    update_interval: never
     web_server:
       sorting_group_id: device_details_group
       sorting_weight: 20
@@ -789,8 +812,6 @@ text_sensor:
                (unsigned long)minutes, (unsigned long)seconds);
       return {std::string(buf)};
 
-# --- DFPlayer controls (visible in web interface + Home Assistant) ---
-
 button:
   - platform: template
     name: "DFPlayer Play"
@@ -798,12 +819,14 @@ button:
     on_press:
       then:
         - dfplayer.start:
+
   - platform: template
     name: "DFPlayer Pause"
     icon: mdi:pause
     on_press:
       then:
         - dfplayer.pause:
+
   - platform: template
     name: "DFPlayer Stop"
     icon: mdi:stop
@@ -813,6 +836,7 @@ button:
         - globals.set:
             id: dfplayer_current_track
             value: '0'
+
   - platform: template
     name: "DFPlayer Next"
     icon: mdi:skip-next
@@ -822,6 +846,7 @@ button:
         - globals.set:
             id: dfplayer_current_track
             value: !lambda 'return id(dfplayer_current_track) + 1;'
+
   - platform: template
     name: "DFPlayer Previous"
     icon: mdi:skip-previous
@@ -831,6 +856,7 @@ button:
         - globals.set:
             id: dfplayer_current_track
             value: !lambda 'return max(0, id(dfplayer_current_track) - 1);'
+
   - platform: template
     name: "DFPlayer Volume Up"
     icon: mdi:volume-plus
@@ -840,6 +866,7 @@ button:
         - globals.set:
             id: dfplayer_volume
             value: !lambda 'return min(30, id(dfplayer_volume) + 1);'
+
   - platform: template
     name: "DFPlayer Volume Down"
     icon: mdi:volume-minus
@@ -849,6 +876,7 @@ button:
         - globals.set:
             id: dfplayer_volume
             value: !lambda 'return max(0, id(dfplayer_volume) - 1);'
+
   - platform: template
     name: "DFPlayer Play Selected Track"
     icon: mdi:play-circle
@@ -856,10 +884,10 @@ button:
       then:
         - script.execute: play_selected_track
 
-  # ADDED: saves settings and reboots so new MQTT settings take effect (from the Meek MT3)
   - platform: template
     name: "Save and Reboot"
     id: save_and_reboot_button
+    discovery: false
     icon: mdi:content-save-alert
     entity_category: ""
     on_press:
@@ -874,13 +902,10 @@ button:
       sorting_group_id: mqtt_details_group
       sorting_weight: 50
 
-  # ADDED (Network Details): two-step WiFi reset, from the Meek MT3.
-  # NOTE: this relies on how ESPHome stores the saved WiFi settings internally
-  # (config hash keys). It is copied unchanged from the Meek MT3; re-test it
-  # after upgrading ESPHome.
   - platform: template
     name: "Reset WiFi Settings"
     id: reset_wifi_settings_button
+    discovery: false
     icon: mdi:wifi-cog
     entity_category: ""
     web_server:
@@ -914,7 +939,6 @@ button:
                 format: "WiFi reset armed. Press the button again within 10 seconds to confirm."
             - script.execute: wifi_reset_arm_timer
 
-  # ADDED (Device Details): restart, from the Meek MT3
   - platform: template
     name: "Restart Meek DD"
     id: restart_meek_dd_button
@@ -932,10 +956,10 @@ button:
       sorting_group_id: device_details_group
       sorting_weight: 90
 
-  # ADDED (Device Details): factory defaults for the settings of this device
   - platform: template
     name: "Reset Settings"
     id: reset_settings_button
+    discovery: false
     icon: mdi:restore
     entity_category: ""
     web_server:
@@ -954,6 +978,9 @@ button:
       - select.set:
           id: mqtt_security_select
           option: "MQTT (Unsecure)"
+      - select.set:
+          id: dsmr_variant_select
+          option: "DSMR 4/5 (115200 8N1, CRC)"
       - number.set:
           id: dfplayer_volume_number
           value: 15
@@ -996,6 +1023,7 @@ number:
         - globals.set:
             id: dfplayer_volume
             value: !lambda 'return static_cast<int>(x);'
+
   - platform: template
     name: "DFPlayer Select Track"
     id: dfplayer_select_track_number
@@ -1011,11 +1039,6 @@ number:
             id: dfplayer_selected_track
             value: !lambda 'return static_cast<int>(x);'
 
-  # How long the physical/web/HA play button is locked out after each
-  # press. Visible and settable both in the local web UI (web_server) and
-  # in Home Assistant, the same way as the other number entities above -
-  # no extra config needed, since mqtt discovery already picks these up.
-  # restore_value keeps whatever was last set across reboots.
   - platform: template
     name: "Button Lock Duration"
     id: button_lock_number
@@ -1090,10 +1113,10 @@ select:
               id(dfplayer_eq) = 0;
             }
 
-  # ADDED: plain TCP or TLS, applied by apply_mqtt_settings after reboot (from the Meek MT3)
   - platform: template
     name: "MQTT Security"
     id: mqtt_security_select
+    discovery: false
     entity_category: ""
     icon: mdi:lock-check
     optimistic: true
@@ -1105,3 +1128,23 @@ select:
     web_server:
       sorting_group_id: mqtt_details_group
       sorting_weight: 45
+
+  # DSMR Variant: UART settings only. CRC is always enabled.
+  - platform: template
+    name: "DSMR Variant"
+    id: dsmr_variant_select
+    entity_category: ""
+    icon: mdi:meter-electric
+    optimistic: true
+    restore_value: true
+    initial_option: "DSMR 4/5 (115200 8N1, CRC)"
+    options:
+      - "DSMR 4/5 (115200 8N1, CRC)"
+      - "DSMR 4/5 no CRC (115200 8N1)"
+      - "DSMR 2.2/3 (9600 7N1)"
+      - "DSMR 2.2/3 (9600 7E1)"
+    on_value:
+      - script.execute: apply_dsmr_variant
+    web_server:
+      sorting_group_id: dsmr_settings_group
+      sorting_weight: 10
